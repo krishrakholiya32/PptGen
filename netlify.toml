@@ -4,7 +4,7 @@
 [build]
   base = "frontend"
   command = "npm run build"
-  publish = "frontend/dist"
+  publish = "dist"
 
 # SPA fallback — every route serves index.html so React Router / deep links work.
 # (This duplicates frontend/public/_redirects; either is sufficient.)
