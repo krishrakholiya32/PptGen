@@ -1,0 +1,41 @@
+# Render Blueprint for PptGen backend
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After pushing this file, go to Render → "New +" → "Blueprint", connect this
+# repo, and Render reads this automatically. You'll be prompted to fill in the
+# secret API keys marked `sync: false` below (they are NOT stored in git).
+
+services:
+  - type: web
+    name: pptgen-backend
+    runtime: docker
+    repo: https://github.com/krishrakholiya32/PptGen
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # ── Required secrets — you'll be prompted for these in the dashboard ──
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: UNSPLASH_ACCESS_KEY
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      # ── Non-secret config (safe to commit) ──
+      - key: ENVIRONMENT
+        value: production
+      - key: GROQ_TEXT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_VISION_MODEL
+        value: llama-3.2-11b-vision-preview
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: OUTPUT_DIR
+        value: outputs
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "20"

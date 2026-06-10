@@ -1,0 +1,18 @@
+# Netlify build configuration for PptGen frontend
+# Docs: https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "frontend/dist"
+
+# SPA fallback — every route serves index.html so React Router / deep links work.
+# (This duplicates frontend/public/_redirects; either is sufficient.)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# NOTE: Set VITE_API_URL in the Netlify dashboard
+# (Site settings → Environment variables), not here, so it stays out of git.
+# Value: https://pptgen-5pxs.onrender.com/api
