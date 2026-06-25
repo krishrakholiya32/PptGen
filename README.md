@@ -240,7 +240,7 @@ PptGen/
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ## Contributing
 
