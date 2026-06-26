@@ -642,7 +642,7 @@ class PPTXRenderer:
                     "title_content": lambda s,d: layout_title_content(s, d, W, H, T, presentation_title, slide_num),
                 }
                 dispatch.get(chosen, dispatch["title_content"])(slide, slide_data)
-                add_transition_hint(slide, chosen)
+                pass  # transition hints removed (polluted speaker notes)
 
             recent_layouts = recent_layouts[-2:]
 

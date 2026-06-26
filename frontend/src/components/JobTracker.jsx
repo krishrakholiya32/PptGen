@@ -34,7 +34,7 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
         }
         if (data.status === "error") clearInterval(interval)
       } catch (e) { console.error("Polling error:", e) }
-    }, 1500)
+    }, 3000)
     return () => clearInterval(interval)
   }, [activeJobId])
 

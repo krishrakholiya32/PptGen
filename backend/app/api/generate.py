@@ -3,8 +3,11 @@ import shutil
 import uuid
 import asyncio
 import json
+import time
+import threading
+from collections import defaultdict
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from app.core.config import settings
@@ -17,7 +20,6 @@ from app.services.web_search import get_web_context
 router = APIRouter()
 
 # ── Persistent jobs store ─────────────────────────────────────────────────────
-# Stored as a JSON file so Render cold-starts don't wipe job state.
 
 def _jobs_file() -> str:
     os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
@@ -38,8 +40,55 @@ def _save_jobs(j: dict):
         print(f"[Jobs] Failed to save jobs: {e}")
 
 jobs: dict = _load_jobs()
-slide_plans: dict = {}  # still in-memory (large data, used only during active session)
 
+
+# ── Persistent slide plans store ──────────────────────────────────────────────
+
+def _plans_dir() -> str:
+    d = os.path.join(settings.OUTPUT_DIR, "_plans")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def _plan_file(job_id: str) -> str:
+    return os.path.join(_plans_dir(), f"{job_id}.json")
+
+def _save_plan(job_id: str, data: dict):
+    try:
+        with open(_plan_file(job_id), "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"[Plans] Failed to save plan {job_id}: {e}")
+
+def _load_plan(job_id: str) -> Optional[dict]:
+    try:
+        with open(_plan_file(job_id)) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+slide_plans: dict = {}  # in-memory cache; falls back to disk
+
+
+# ── Per-IP rate limiting ──────────────────────────────────────────────────────
+
+_rate_lock = threading.Lock()
+_ip_buckets: dict[str, list[float]] = defaultdict(list)
+_IP_HOURLY_LIMIT = 5
+
+def _check_rate_limit(client_ip: str):
+    now = time.monotonic()
+    with _rate_lock:
+        bucket = [t for t in _ip_buckets[client_ip] if now - t < 3600]
+        if len(bucket) >= _IP_HOURLY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail="You've generated 5 presentations this hour. Please wait before trying again."
+            )
+        bucket.append(now)
+        _ip_buckets[client_ip] = bucket
+
+
+# ── Models ────────────────────────────────────────────────────────────────────
 
 class ThemeColors(BaseModel):
     bg: str = "#FFFFFF"
@@ -81,8 +130,13 @@ class JobStatus(BaseModel):
     download_url: Optional[str] = None
 
 
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
 @router.post("/generate", response_model=JobStatus)
-async def generate_document(req: GenerateRequest, background_tasks: BackgroundTasks):
+async def generate_document(req: GenerateRequest, background_tasks: BackgroundTasks, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(client_ip)
+
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "pending", "progress": 0, "message": "Queued"}
     _save_jobs(jobs)
@@ -114,7 +168,7 @@ async def run_generation(job_id: str, req: GenerateRequest):
         output_dir = settings.OUTPUT_DIR
         os.makedirs(output_dir, exist_ok=True)
 
-        # Cleanup old upload sessions
+        # Clean up stale upload sessions only (not outputs)
         _cleanup_old_sessions()
 
         # Step 1: Extract style
@@ -158,13 +212,14 @@ async def run_generation(job_id: str, req: GenerateRequest):
         if plan.get("slides"):
             plan["slides"] = await fetch_images_for_slides(plan["slides"], session_dir)
 
-        # Cache plan
-        slide_plans[job_id] = {"plan": plan, "style": style, "session_dir": session_dir, "req": req.dict()}
+        # Cache plan (memory + disk)
+        cached = {"plan": plan, "style": style, "session_dir": session_dir, "req": req.dict()}
+        slide_plans[job_id] = cached
+        _save_plan(job_id, cached)
 
         # Step 5: Render
         jobs[job_id].update({"progress": 70, "message": "Rendering presentation..."})
         _save_jobs(jobs)
-        # Use AI-generated file_title if available, else fall back to prompt truncation
         file_title = plan.get("file_title", "")
         if file_title and len(file_title) >= 3:
             safe_title = "".join(c for c in file_title.strip().replace(" ", "_") if c.isalnum() or c in "_-")
@@ -185,7 +240,7 @@ async def run_generation(job_id: str, req: GenerateRequest):
         })
         _save_jobs(jobs)
 
-        # Save to history (persistent JSON)
+        # Save to history
         try:
             from app.api.preview import history_store, _save_history
             entry = {
@@ -205,7 +260,6 @@ async def run_generation(job_id: str, req: GenerateRequest):
             print(f"[Generate] History save failed: {e}")
 
         # Copy auto-fetched slide images to outputs/ so preview can serve them
-        # MUST happen before we delete the session dir
         try:
             import glob
             for img_path in glob.glob(os.path.join(session_dir, "auto_*.jpg")):
@@ -216,28 +270,28 @@ async def run_generation(job_id: str, req: GenerateRequest):
         except Exception as e:
             print(f"[Generate] Image copy failed: {e}")
 
-        # Now safe to delete session uploads
+        # Delete session uploads (done with them)
         try:
             if os.path.exists(session_dir):
                 shutil.rmtree(session_dir)
-                print(f"[Generate] Cleaned up session dir: {session_dir}")
         except Exception as e:
             print(f"[Generate] Cleanup failed: {e}")
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
-        jobs[job_id].update({"status": "error", "progress": 0, "message": str(e)})
+        # Don't expose raw exception details to the client
+        jobs[job_id].update({"status": "error", "progress": 0, "message": "Generation failed. Check your API key and try again."})
         _save_jobs(jobs)
         print(f"[Generate] Job {job_id} failed: {e}")
         traceback.print_exc()
 
 
 def _cleanup_old_sessions():
-    """Delete upload sessions and output files older than 1 hour."""
+    """Delete upload sessions older than 1 hour. Outputs are managed separately by preview.py."""
     try:
         cutoff = datetime.now() - timedelta(hours=1)
-
-        # Clean upload sessions
         upload_dir = settings.UPLOAD_DIR
         if os.path.exists(upload_dir):
             for session in os.listdir(upload_dir):
@@ -247,32 +301,23 @@ def _cleanup_old_sessions():
                     if mtime < cutoff:
                         shutil.rmtree(session_path)
                         print(f"[Cleanup] Removed old session: {session}")
-
-        # Clean output files (.pptx and images)
-        output_dir = settings.OUTPUT_DIR
-        if os.path.exists(output_dir):
-            for filename in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, filename)
-                if os.path.isfile(file_path):
-                    mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
-                    if mtime < cutoff:
-                        os.remove(file_path)
-                        print(f"[Cleanup] Removed old output: {filename}")
-
     except Exception as e:
         print(f"[Cleanup] Error: {e}")
 
 
 @router.get("/slide-plan/{job_id}")
 async def get_slide_plan(job_id: str):
-    cached = slide_plans.get(job_id)
+    # Try memory first, then disk
+    cached = slide_plans.get(job_id) or _load_plan(job_id)
     if not cached:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="Plan not found or expired")
+    # Warm memory cache
+    slide_plans[job_id] = cached
+
     plan = cached["plan"]
     style = cached["style"]
     slides = []
     for s in plan.get("slides", []):
-        # Return image as a URL path served from /outputs/ (images were copied there)
         img = s.get("image")
         img_url = f"/outputs/{img}" if img else None
         slides.append({
@@ -297,10 +342,11 @@ async def get_slide_plan(job_id: str):
 
 @router.post("/edit-slide")
 async def edit_slide(req: EditSlideRequest, background_tasks: BackgroundTasks):
-    cached = slide_plans.get(req.job_id)
+    cached = slide_plans.get(req.job_id) or _load_plan(req.job_id)
     if not cached:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or expired — please generate a new presentation")
 
+    slide_plans[req.job_id] = cached
     plan   = cached["plan"]
     slides = plan.get("slides", [])
     if req.slide_index < 0 or req.slide_index >= len(slides):
@@ -320,10 +366,11 @@ async def edit_slide(req: EditSlideRequest, background_tasks: BackgroundTasks):
 
 @router.post("/regenerate-slide")
 async def regenerate_slide(req: RegenerateSlideRequest, background_tasks: BackgroundTasks):
-    cached = slide_plans.get(req.job_id)
+    cached = slide_plans.get(req.job_id) or _load_plan(req.job_id)
     if not cached:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or expired — please generate a new presentation")
 
+    slide_plans[req.job_id] = cached
     plan   = cached["plan"]
     slides = plan.get("slides", [])
     if req.slide_index < 0 or req.slide_index >= len(slides):
@@ -359,12 +406,15 @@ Generate fresh, different content. Return JSON only:
         from app.services.llm_service import llm
         new_content = await llm.generate_json(regen_prompt, max_tokens=600)
         slide.update(new_content)
+        _save_plan(job_id, cached)
+
         jobs[job_id].update({"progress": 70, "message": "Re-rendering presentation..."})
         _save_jobs(jobs)
         await _rerender(job_id, cached)
     except Exception as e:
-        jobs[job_id].update({"status": "error", "progress": 0, "message": str(e)})
+        jobs[job_id].update({"status": "error", "progress": 0, "message": "Regeneration failed. Please try again."})
         _save_jobs(jobs)
+        print(f"[Regen] Job {job_id} failed: {e}")
 
 
 async def _rerender(job_id: str, cached: dict):
@@ -376,8 +426,7 @@ async def _rerender(job_id: str, cached: dict):
         session_dir = cached["session_dir"]
         orig_req    = cached["req"]
 
-        cached_plan = cached.get("plan", {})
-        file_title = cached_plan.get("file_title", "")
+        file_title = plan.get("file_title", "")
         if file_title and len(file_title) >= 3:
             safe_title = "".join(c for c in file_title.strip().replace(" ", "_") if c.isalnum() or c in "_-")
         else:
@@ -389,6 +438,7 @@ async def _rerender(job_id: str, cached: dict):
 
         renderer_pptx.render(plan, style, session_dir, output_path)
         slide_plans[job_id] = cached
+        _save_plan(job_id, cached)
 
         jobs[job_id].update({
             "status": "done",
@@ -398,5 +448,6 @@ async def _rerender(job_id: str, cached: dict):
         })
         _save_jobs(jobs)
     except Exception as e:
-        jobs[job_id].update({"status": "error", "progress": 0, "message": str(e)})
+        jobs[job_id].update({"status": "error", "progress": 0, "message": "Re-render failed. Please try again."})
         _save_jobs(jobs)
+        print(f"[Rerender] Job {job_id} failed: {e}")

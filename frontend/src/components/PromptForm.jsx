@@ -36,6 +36,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
   const [tone, setTone]                 = useState("general")
   const [extraContext, setExtraContext]  = useState("")
   const [showContext, setShowContext]    = useState(false)
+  const [useWebSearch, setUseWebSearch]  = useState(false)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState("")
 
@@ -128,7 +129,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
           template_file: templateFile || null,
           image_files: uploadedFiles.images,
           theme_colors: activeColors,
-          use_web_search: false,
+          use_web_search: useWebSearch,
           content_density: contentDensity,
           tone,
         })
@@ -183,6 +184,20 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
         )}
       </div>
 
+      {/* Web search toggle */}
+      <div className="form-group">
+        <label className="form-label toggle-row">
+          <span>🌐 Search web for current facts</span>
+          <span className="toggle-hint">adds live data to your slides</span>
+          <input
+            type="checkbox"
+            className="toggle-checkbox"
+            checked={useWebSearch}
+            onChange={e => setUseWebSearch(e.target.checked)}
+          />
+        </label>
+      </div>
+
       <div className="section-divider" />
 
       {/* Slide count + language */}
@@ -222,7 +237,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
           <p className="form-hint">
             {contentDensity === "short" ? "2-3 concise bullets — great for executives"
               : contentDensity === "medium" ? "4-5 informative bullets — standard"
-              : "5-6 detailed bullets — great for training"}
+              : "7-8 detailed bullets — great for training"}
           </p>
         </div>
         <div className="form-group" style={{ marginBottom: 0 }}>

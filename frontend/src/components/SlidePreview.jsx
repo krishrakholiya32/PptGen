@@ -30,9 +30,9 @@ function MiniSlide({ slide, style, large = false }) {
     return <div style={{background:`linear-gradient(135deg,${accent}28,${accent}0a)`,border:`1px solid ${accent}33`,display:"flex",alignItems:"center",justifyContent:"center",...s}}><span style={{fontSize:"24px",opacity:0.3}}>🖼</span></div>
   }
 
-  const BulletList = ({ maxW="100%" }) => (
+  const BulletList = ({ maxW="100%", items=bullets }) => (
     <div style={{width:maxW,display:"flex",flexDirection:"column",gap: large?"6px":"2.5px"}}>
-      {bullets.map((b,i)=>(
+      {items.map((b,i)=>(
         <div key={i} style={{display:"flex",gap:"4px",alignItems:"flex-start"}}>
           <span style={{color:accent,fontSize:fs.bullet,flexShrink:0,lineHeight:1.4,marginTop:"1px"}}>●</span>
           <span style={{color:text,fontSize:fs.bullet,lineHeight:1.45,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:large?3:2,WebkitBoxOrient:"vertical"}}>{b}</span>
@@ -129,25 +129,28 @@ function MiniSlide({ slide, style, large = false }) {
     </div>
   )
 
-  if (layout==="two_column") return (
-    <div style={base}>
-      <AccentBar />
-      <div style={{position:"absolute",left:"3%",top:"12%",right:"3%",bottom:"10%"}}>
-        <Title /><Underline />
-        <div style={{display:"flex",gap:"2%",marginTop:"2px"}}>
-          <div style={{flex:1,background:surface,borderRadius:"3px",padding:"4px",overflow:"hidden"}}>
-            <div style={{fontSize:fs.sub,fontWeight:700,color:text,textAlign:"center",marginBottom:"3px"}}>Key Points</div>
-            <BulletList />
-          </div>
-          <div style={{flex:1,background:surface,borderRadius:"3px",padding:"4px",overflow:"hidden"}}>
-            <div style={{fontSize:fs.sub,fontWeight:700,color:text,textAlign:"center",marginBottom:"3px"}}>Details</div>
-            <BulletList />
+  if (layout==="two_column") {
+    const half = Math.ceil(bullets.length / 2)
+    return (
+      <div style={base}>
+        <AccentBar />
+        <div style={{position:"absolute",left:"3%",top:"12%",right:"3%",bottom:"10%"}}>
+          <Title /><Underline />
+          <div style={{display:"flex",gap:"2%",marginTop:"2px"}}>
+            <div style={{flex:1,background:surface,borderRadius:"3px",padding:"4px",overflow:"hidden"}}>
+              <div style={{fontSize:fs.sub,fontWeight:700,color:text,textAlign:"center",marginBottom:"3px"}}>Key Points</div>
+              <BulletList items={bullets.slice(0, half)} />
+            </div>
+            <div style={{flex:1,background:surface,borderRadius:"3px",padding:"4px",overflow:"hidden"}}>
+              <div style={{fontSize:fs.sub,fontWeight:700,color:text,textAlign:"center",marginBottom:"3px"}}>Details</div>
+              <BulletList items={bullets.slice(half)} />
+            </div>
           </div>
         </div>
+        <Footer />
       </div>
-      <Footer />
-    </div>
-  )
+    )
+  }
 
   if (layout==="section_break") return (
     <div style={base}>
@@ -346,7 +349,7 @@ export function SlidePreview({ jobId, onRerender }) {
         }
         if (data.status === "error") { clearInterval(interval); setRegenStatus("Error: " + data.message) }
       } catch {}
-    }, 1500)
+    }, 3000)
     setTimeout(() => clearInterval(interval), 180000)
   }
 

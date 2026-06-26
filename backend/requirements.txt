@@ -7,3 +7,4 @@ python-pptx
 jinja2
 lxml
 Pillow
+duckduckgo-search

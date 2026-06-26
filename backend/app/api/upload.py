@@ -32,7 +32,7 @@ async def upload_files(
         ext = os.path.splitext(file.filename)[1].lower()
         size = 0
 
-        dest = os.path.join(session_dir, file.filename)
+        dest = os.path.join(session_dir, os.path.basename(file.filename))
         with open(dest, "wb") as f:
             content = await file.read()
             size = len(content)

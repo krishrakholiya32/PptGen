@@ -26,16 +26,21 @@ services:
         sync: false
       - key: PEXELS_API_KEY
         sync: false
+      - key: PIXABAY_API_KEY
+        sync: false
       # ── Non-secret config (safe to commit) ──
       - key: ENVIRONMENT
         value: production
       - key: GROQ_TEXT_MODEL
         value: llama-3.3-70b-versatile
       - key: GROQ_VISION_MODEL
-        value: llama-3.2-11b-vision-preview
+        value: meta-llama/llama-4-scout-17b-16e-instruct
       - key: UPLOAD_DIR
         value: uploads
       - key: OUTPUT_DIR
         value: outputs
       - key: MAX_UPLOAD_SIZE_MB
         value: "20"
+      # Set this to your Netlify frontend URL (comma-separated if multiple)
+      - key: CORS_ORIGINS
+        value: "https://pptgen.zrik.tech,http://localhost:5173"
