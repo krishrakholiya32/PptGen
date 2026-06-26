@@ -43,4 +43,4 @@ services:
         value: "20"
       # Set this to your Netlify frontend URL (comma-separated if multiple)
       - key: CORS_ORIGINS
-        value: "https://pptgen.zrik.tech,http://localhost:5173"
+        value: "https://kpptgen.netlify.app,https://pptgen.zrik.tech,http://localhost:5173"

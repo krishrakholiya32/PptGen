@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # e.g. CORS_ORIGINS='["https://myapp.netlify.app","http://localhost:5173"]'
     # or   CORS_ORIGINS="https://myapp.netlify.app,http://localhost:5173"
     CORS_ORIGINS: List[str] = [
+        "https://kpptgen.netlify.app",
+        "https://pptgen.zrik.tech",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:80",
