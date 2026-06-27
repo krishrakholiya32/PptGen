@@ -11,8 +11,14 @@ const STEPS = ["Configure", "Generate"]
 export default function App() {
   const [sessionId, setSessionId]         = useState(() => crypto.randomUUID())
   const [uploadedFiles, setUploadedFiles] = useState({ images: [], templates: [] })
-  const [jobId, setJobId]                 = useState(null)
-  const [step, setStep]                   = useState(1)
+  const [jobId, setJobId]                 = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get("job") || null
+  })
+  const [step, setStep]                   = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get("job") ? 2 : 1
+  })
   const historyRef                        = useRef()
 
   // Keep Render free-tier backend warm so it doesn't cold-start mid-session.

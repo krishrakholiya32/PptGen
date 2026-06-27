@@ -8,6 +8,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from app.core.config import settings
@@ -120,6 +121,11 @@ class EditSlideRequest(BaseModel):
     title: Optional[str] = None
     bullets: Optional[List[str]] = None
     speaker_notes: Optional[str] = None
+
+
+class ReorderRequest(BaseModel):
+    job_id: str
+    slide_order: List[int]
 
 
 class JobStatus(BaseModel):
@@ -415,6 +421,40 @@ Generate fresh, different content. Return JSON only:
         jobs[job_id].update({"status": "error", "progress": 0, "message": "Regeneration failed. Please try again."})
         _save_jobs(jobs)
         print(f"[Regen] Job {job_id} failed: {e}")
+
+
+@router.get("/stream/{job_id}")
+async def stream_job_status(job_id: str):
+    """SSE endpoint — emits job status every second until done/error."""
+    async def gen():
+        for _ in range(360):  # max 6 minutes
+            j = jobs.get(job_id)
+            if not j:
+                yield f"data: {json.dumps({'error': 'not_found'})}\n\n"
+                return
+            yield f"data: {json.dumps({'status': j['status'], 'progress': j['progress'], 'message': j['message'], 'download_url': j.get('download_url')})}\n\n"
+            if j["status"] in ("done", "error"):
+                return
+            await asyncio.sleep(1)
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/reorder-slides")
+async def reorder_slides(req: ReorderRequest, background_tasks: BackgroundTasks):
+    cached = slide_plans.get(req.job_id) or _load_plan(req.job_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Job not found or expired")
+    slide_plans[req.job_id] = cached
+    slides = cached["plan"].get("slides", [])
+    if len(req.slide_order) != len(slides):
+        raise HTTPException(status_code=400, detail="Slide order length mismatch")
+    cached["plan"]["slides"] = [slides[i] for i in req.slide_order]
+    new_job_id = str(uuid.uuid4())
+    jobs[new_job_id] = {"status": "pending", "progress": 0, "message": "Queued"}
+    _save_jobs(jobs)
+    background_tasks.add_task(_rerender, new_job_id, cached)
+    return {"job_id": new_job_id, "status": "pending"}
 
 
 async def _rerender(job_id: str, cached: dict):

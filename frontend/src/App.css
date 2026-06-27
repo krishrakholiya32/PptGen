@@ -1913,3 +1913,54 @@ body::before {
 .history-item.expired { opacity: 0.5; }
 .history-expired-tag { color: #f87171; font-size: 11px; }
 
+
+
+/* ── Slide card reorder + actions ──────────────── */
+.slide-card-actions {
+  display: flex; gap: 4px;
+  margin: 0 8px 8px; align-items: center;
+}
+.slide-card-move-btn {
+  flex: 1; padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-2);
+  background: var(--surface-3);
+  color: var(--text-2); font-size: 12px; font-weight: 600;
+  font-family: var(--font-body); cursor: pointer;
+  transition: var(--transition);
+}
+.slide-card-move-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.slide-card-move-btn:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Done hero secondary actions ───────────────── */
+.done-secondary-actions {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; margin-top: 14px;
+}
+.btn-action-sm {
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-2); background: var(--surface-3);
+  color: var(--text-2); font-family: var(--font-body);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: var(--transition);
+}
+.btn-action-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Live preview during generation ────────────── */
+.live-preview-wrap { margin-top: 24px; }
+.live-preview-label {
+  font-size: 13px; color: var(--accent);
+  font-weight: 600; margin-bottom: 4px; text-align: center;
+}
+
+/* ── Print styles ───────────────────────────────── */
+@media print {
+  body > * { display: none !important; }
+  .print-target { display: block !important; }
+  .print-target .slide-card { break-inside: avoid; page-break-inside: avoid; }
+  .print-target .slides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .print-target .slide-mini-preview { aspect-ratio: 16/9; }
+  .tracker-outer > .card:first-child { display: none; }
+  .preview-header, .regen-status, .slide-card-actions, .slide-card-edit-btn,
+  .slide-editor-overlay, .tracker-actions { display: none !important; }
+}

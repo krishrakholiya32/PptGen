@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { SlidePreview } from "./SlidePreview"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
@@ -18,29 +18,115 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
   const [job, setJob]                 = useState({ status: "pending", progress: 0, message: "Starting…" })
   const [activeJobId, setActiveJobId] = useState(jobId)
   const [showPreview, setShowPreview] = useState(false)
+  const [liveSlides, setLiveSlides]   = useState(null)
+  const [copied, setCopied]           = useState(false)
+  const esRef   = useRef(null)
+  const pollRef = useRef(null)
+  const planRef = useRef(null)
 
   useEffect(() => { setActiveJobId(jobId) }, [jobId])
 
+  // Update URL param so the job can be restored on reload
   useEffect(() => {
     if (!activeJobId) return
-    const interval = setInterval(async () => {
-      try {
-        const res  = await fetch(`${API}/job/${activeJobId}`)
-        const data = await res.json()
-        setJob(data)
-        if (data.status === "done") {
-          clearInterval(interval)
-          if (onHistoryRefresh) onHistoryRefresh()
-        }
-        if (data.status === "error") clearInterval(interval)
-      } catch (e) { console.error("Polling error:", e) }
-    }, 3000)
-    return () => clearInterval(interval)
+    const url = new URL(window.location.href)
+    url.searchParams.set("job", activeJobId)
+    window.history.replaceState({}, "", url.toString())
   }, [activeJobId])
+
+  // SSE with polling fallback
+  useEffect(() => {
+    if (!activeJobId) return
+
+    let sse = null
+    let fallback = null
+    let sseOk = false
+
+    const applyData = (data) => {
+      setJob(data)
+      if (data.status === "done") {
+        if (onHistoryRefresh) onHistoryRefresh()
+        stopAll()
+      }
+      if (data.status === "error") stopAll()
+    }
+
+    const stopAll = () => {
+      if (sse) { try { sse.close() } catch {} }
+      if (fallback) clearInterval(fallback)
+      if (planRef.current) clearInterval(planRef.current)
+    }
+
+    // Try SSE first
+    try {
+      sse = new EventSource(`${API}/stream/${activeJobId}`)
+      esRef.current = sse
+      sse.onmessage = (e) => {
+        sseOk = true
+        if (fallback) { clearInterval(fallback); fallback = null }
+        try { applyData(JSON.parse(e.data)) } catch {}
+      }
+      sse.onerror = () => {
+        if (!sseOk) {
+          // SSE failed, fall back to polling
+          try { sse.close() } catch {}
+          fallback = setInterval(async () => {
+            try {
+              const data = await fetch(`${API}/job/${activeJobId}`).then(r => r.json())
+              applyData(data)
+            } catch {}
+          }, 3000)
+        }
+      }
+    } catch {
+      fallback = setInterval(async () => {
+        try {
+          const data = await fetch(`${API}/job/${activeJobId}`).then(r => r.json())
+          applyData(data)
+        } catch {}
+      }, 3000)
+    }
+
+    return () => stopAll()
+  }, [activeJobId])
+
+  // Live slide preview — poll slide-plan once progress >= 55
+  useEffect(() => {
+    if (job.progress < 55 || job.status === "error") return
+    if (liveSlides) return  // already loaded
+
+    const tryFetch = async () => {
+      try {
+        const d = await fetch(`${API}/slide-plan/${activeJobId}`).then(r => r.ok ? r.json() : null)
+        if (d) {
+          setLiveSlides(d)
+          if (planRef.current) clearInterval(planRef.current)
+        }
+      } catch {}
+    }
+
+    tryFetch()
+    planRef.current = setInterval(tryFetch, 4000)
+    return () => clearInterval(planRef.current)
+  }, [job.progress, activeJobId])
 
   const handleRerender = (newJobId) => {
     setActiveJobId(newJobId)
     setJob({ status: "pending", progress: 0, message: "Re-rendering…" })
+    setLiveSlides(null)
+  }
+
+  const handleShare = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("job", activeJobId)
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   const isDone  = job.status === "done"
@@ -57,9 +143,17 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
             <a href={`${BASE}${job.download_url}`} download className="btn-download">
               ⬇ Download PowerPoint
             </a>
-            <button className="btn-preview-toggle" onClick={() => setShowPreview(v => !v)}>
-              {showPreview ? "▴ Hide slide preview" : "▾ View all slides"}
-            </button>
+            <div className="done-secondary-actions">
+              <button className="btn-action-sm" onClick={handleShare}>
+                {copied ? "✓ Copied!" : "🔗 Share link"}
+              </button>
+              <button className="btn-action-sm" onClick={handlePrint}>
+                🖨 Export PDF
+              </button>
+              <button className="btn-preview-toggle" onClick={() => setShowPreview(v => !v)}>
+                {showPreview ? "▴ Hide slides" : "▾ View all slides"}
+              </button>
+            </div>
           </div>
         ) : isError ? (
           <>
@@ -97,6 +191,16 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
                 </div>
               ))}
             </div>
+
+            {/* Live slide preview while generating */}
+            {liveSlides && (
+              <div className="live-preview-wrap">
+                <p className="live-preview-label">📑 Slides ready — rendering PPTX…</p>
+                <div className="card preview-card" style={{ marginTop: "12px" }}>
+                  <SlidePreview jobId={activeJobId} onRerender={handleRerender} prefetchedPlan={liveSlides} readOnly />
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -106,7 +210,7 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
       </div>
 
       {isDone && showPreview && (
-        <div className="card preview-card">
+        <div className="card preview-card print-target">
           <SlidePreview jobId={activeJobId} onRerender={handleRerender} />
         </div>
       )}

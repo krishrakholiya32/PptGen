@@ -297,21 +297,29 @@ function SlideEditorModal({ slide, index, style, onSave, onClose, onRegenerate }
 
 // ── Slide thumbnail card ───────────────────────────────────────────────────────
 
-function SlideCard({ slide, index, isSelected, onClick, onEdit, style }) {
+function SlideCard({ slide, index, total, isSelected, onClick, onEdit, onMoveUp, onMoveDown, style, readOnly }) {
   return (
     <div
       className={`slide-card ${isSelected ? "selected" : ""}`}
       onClick={() => onClick(index)}
-      title="Click to open editor"
+      title={readOnly ? undefined : "Click to open editor"}
     >
       <div className="slide-card-num">#{index + 1}</div>
       <div className="slide-mini-preview">
         <MiniSlide slide={slide} style={style} />
       </div>
       <div className="slide-card-label">{slide.title || "Untitled"}</div>
-      <button className="slide-card-edit-btn" onClick={e => { e.stopPropagation(); onEdit(index) }}>
-        ✏️ Edit
-      </button>
+      {!readOnly && (
+        <div className="slide-card-actions">
+          <button className="slide-card-move-btn" disabled={index === 0}
+            onClick={e => { e.stopPropagation(); onMoveUp(index) }} title="Move up">↑</button>
+          <button className="slide-card-move-btn" disabled={index === total - 1}
+            onClick={e => { e.stopPropagation(); onMoveDown(index) }} title="Move down">↓</button>
+          <button className="slide-card-edit-btn" onClick={e => { e.stopPropagation(); onEdit(index) }}>
+            ✏️
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -319,20 +327,22 @@ function SlideCard({ slide, index, isSelected, onClick, onEdit, style }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function SlidePreview({ jobId, onRerender }) {
-  const [plan,         setPlan]         = useState(null)
-  const [loading,      setLoading]      = useState(true)
+export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnly = false }) {
+  const [plan,         setPlan]         = useState(prefetchedPlan)
+  const [loading,      setLoading]      = useState(!prefetchedPlan)
   const [selected,     setSelected]     = useState(0)
   const [editingIndex, setEditingIndex] = useState(null)
   const [regenStatus,  setRegenStatus]  = useState("")
+  const [localSlides,  setLocalSlides]  = useState(null)
 
   useEffect(() => {
+    if (prefetchedPlan) { setPlan(prefetchedPlan); setLoading(false); return }
     if (!jobId) return
     fetch(`${API}/slide-plan/${jobId}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setPlan(d) })
       .finally(() => setLoading(false))
-  }, [jobId])
+  }, [jobId, prefetchedPlan])
 
   const pollJob = (newJobId) => {
     setRegenStatus("Regenerating…")
@@ -373,12 +383,45 @@ export function SlidePreview({ jobId, onRerender }) {
     } catch (e) { setRegenStatus("Error: " + e.message) }
   }
 
+  const handleMoveUp = async (index) => {
+    if (index === 0) return
+    const newOrder = slides.map((_, i) => i)
+    ;[newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]]
+    try {
+      const data = await fetch(`${API}/reorder-slides`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ job_id: jobId, slide_order: newOrder }),
+      }).then(r=>r.json())
+      pollJob(data.job_id)
+      // Optimistically reorder local view
+      const reordered = [...slides]
+      ;[reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]]
+      setLocalSlides(reordered)
+    } catch (e) { setRegenStatus("Error: " + e.message) }
+  }
+
+  const handleMoveDown = async (index) => {
+    if (index === slides.length - 1) return
+    const newOrder = slides.map((_, i) => i)
+    ;[newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]
+    try {
+      const data = await fetch(`${API}/reorder-slides`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ job_id: jobId, slide_order: newOrder }),
+      }).then(r=>r.json())
+      pollJob(data.job_id)
+      const reordered = [...slides]
+      ;[reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]]
+      setLocalSlides(reordered)
+    } catch (e) { setRegenStatus("Error: " + e.message) }
+  }
+
   if (loading) return <div className="preview-loading">Loading slide preview…</div>
   if (!plan)   return null
 
-  const slideStyle = plan.style || {}
-  const slides     = plan.slides || []
-  const editSlide  = editingIndex !== null ? slides[editingIndex] : null
+  const slideStyle   = plan.style || {}
+  const slides       = localSlides || plan.slides || []
+  const editSlide    = editingIndex !== null ? slides[editingIndex] : null
 
   return (
     <div className="slide-preview-wrap">
@@ -392,17 +435,20 @@ export function SlidePreview({ jobId, onRerender }) {
       <div className="slides-grid">
         {slides.map((slide, i) => (
           <SlideCard
-            key={i} slide={slide} index={i}
+            key={i} slide={slide} index={i} total={slides.length}
             isSelected={selected === i}
-            onClick={i => { setSelected(i); setEditingIndex(i) }}
+            onClick={i => { setSelected(i); if (!readOnly) setEditingIndex(i) }}
             onEdit={i => setEditingIndex(i)}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
             style={slideStyle}
+            readOnly={readOnly}
           />
         ))}
       </div>
 
       {/* PowerPoint-style editor modal */}
-      {editSlide && (
+      {!readOnly && editSlide && (
         <SlideEditorModal
           slide={editSlide}
           index={editingIndex}
