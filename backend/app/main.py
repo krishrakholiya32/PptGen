@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api import generate, upload, preview
+from app.api import auth as auth_module
 from app.core.config import settings
+from app.database.db import init_db
 import os
 import logging
 
@@ -26,10 +28,13 @@ app.add_middleware(
 os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
+init_db()
+
 # On startup: clean outputs older than 7 days, prune expired history
 from app.api.preview import cleanup_old_outputs
 cleanup_old_outputs(retention_days=7)
 
+app.include_router(auth_module.router)
 app.include_router(generate.router, prefix="/api")
 app.include_router(upload.router,   prefix="/api")
 app.include_router(preview.router,  prefix="/api")

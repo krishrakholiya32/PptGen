@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react"
 import { PromptForm } from "./components/PromptForm"
 import { JobTracker } from "./components/JobTracker"
 import { PresentationHistory } from "./components/PresentationHistory"
+import { AuthPage } from "./components/AuthPage"
 import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
@@ -9,25 +10,46 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 const STEPS = ["Configure", "Generate"]
 
 export default function App() {
-  const [sessionId, setSessionId]         = useState(() => crypto.randomUUID())
-  const [uploadedFiles, setUploadedFiles] = useState({ images: [], templates: [] })
-  const [jobId, setJobId]                 = useState(() => {
+  const [token,          setToken]          = useState(() => localStorage.getItem("pptgen_token") || null)
+  const [user,           setUser]           = useState(null)
+  const [sessionId,      setSessionId]      = useState(() => crypto.randomUUID())
+  const [uploadedFiles,  setUploadedFiles]  = useState({ images: [], templates: [] })
+  const [jobId,          setJobId]          = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get("job") || null
   })
-  const [step, setStep]                   = useState(() => {
+  const [step, setStep] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get("job") ? 2 : 1
   })
-  const historyRef                        = useRef()
+  const historyRef = useRef()
 
-  // Keep Render free-tier backend warm so it doesn't cold-start mid-session.
+  // Validate token and load user on mount
+  useEffect(() => {
+    if (!token) return
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setUser(d); else handleLogout() })
+      .catch(() => {})
+  }, [token])
+
+  // Keep backend warm
   useEffect(() => {
     const ping = () => fetch(`${API.replace(/\/api$/, "")}/health`).catch(() => {})
     ping()
-    const id = setInterval(ping, 10 * 60 * 1000) // every 10 minutes
+    const id = setInterval(ping, 10 * 60 * 1000)
     return () => clearInterval(id)
   }, [])
+
+  const handleLogin = (newToken) => {
+    setToken(newToken)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("pptgen_token")
+    setToken(null)
+    setUser(null)
+  }
 
   const handleGenerate = (id) => { setJobId(id); setStep(2) }
 
@@ -42,6 +64,8 @@ export default function App() {
     if (historyRef.current) historyRef.current.refresh()
   }
 
+  if (!token) return <AuthPage onLogin={handleLogin} />
+
   return (
     <div className="app">
       <header className="app-header">
@@ -52,19 +76,20 @@ export default function App() {
           </div>
           <span className="logo-sub">AI Presentation Generator</span>
         </div>
-        <div className="header-badge">
-          <div className="header-badge-dot" />
-          AI Ready
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {user && <span className="header-username">👤 {user.username}</span>}
+          <button className="btn-logout" onClick={handleLogout}>Logout</button>
+          <div className="header-badge">
+            <div className="header-badge-dot" />
+            AI Ready
+          </div>
         </div>
       </header>
 
       <main className="app-main">
         <div className="steps-bar">
           {STEPS.map((label, i) => (
-            <div
-              key={i}
-              className={`step ${step === i + 1 ? "active" : ""} ${step > i + 1 ? "done" : ""}`}
-            >
+            <div key={i} className={`step ${step === i + 1 ? "active" : ""} ${step > i + 1 ? "done" : ""}`}>
               <div className="step-dot">{step > i + 1 ? "✓" : i + 1}</div>
               <span>{label}</span>
             </div>
