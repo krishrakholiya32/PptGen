@@ -353,30 +353,38 @@ def _content_h(H):     return _content_bottom(H) - _content_top()
 
 def layout_title_slide(slide, data, W, H, T, presentation_title, slide_num):
     set_bg(slide, T["bg"])
-    add_rect(slide, 0, 0, Inches(0.18), H, T["accent"])
-    add_rect(slide, Inches(0.35), H - Inches(3.6), W - Inches(0.7), Inches(3.3), T["surface"])
-    add_rect(slide, Inches(0.35), H - Inches(3.65), W - Inches(0.7), Pt(3), T["accent"])
+    # Top half: accent fill gives the slide a bold, professional look
+    split = H * 0.48
+    add_rect(slide, 0, 0, W, split, T["accent"])
+    # Thin accent2 divider at the split
+    add_rect(slide, 0, split, W, Pt(5), T["accent2"])
+    # Vertical accent bar on left
+    add_rect(slide, 0, 0, Inches(0.22), H, T["accent2"])
+    # Title — white text inside the accent half
     title = data.get("title", "Presentation")
+    n = len(title)
+    fsz = 46 if n <= 30 else (38 if n <= 50 else 30)
     add_textbox(slide, title,
-                Inches(0.6), H - Inches(3.4), W - Inches(1.2), Inches(1.6),
-                font_name=T["font_title"], font_size=44, bold=True,
-                color=T["text"], align=PP_ALIGN.LEFT)
+                Inches(0.5), split * 0.18, W - Inches(1.0), split * 0.72,
+                font_name=T["font_title"], font_size=fsz, bold=True,
+                color="FFFFFF", align=PP_ALIGN.LEFT)
+    # Subtitle — below the split in bg-coloured area
     subtitle = data.get("subtitle", "")
+    sub_color = T["accent"] if not is_dark(f"#{T['bg']}") else T["accent"]
     if subtitle:
-        # Split subtitle by " | " for multi-line personal info display
         lines = [l.strip() for l in subtitle.split("|") if l.strip()]
         if len(lines) > 1:
             add_textbox_multiline(slide, lines,
-                Inches(0.6), H - Inches(1.9), W - Inches(1.2), Inches(1.0),
-                font_name=T["font_body"], font_size=16, bold=False,
-                color=T["accent"], align=PP_ALIGN.LEFT,
-                line_spacing_pt=22)
+                Inches(0.5), split + Inches(0.35), W - Inches(1.0), Inches(1.1),
+                font_name=T["font_body"], font_size=17, bold=False,
+                color=sub_color, align=PP_ALIGN.LEFT, line_spacing_pt=24)
         else:
             add_textbox(slide, subtitle,
-                        Inches(0.6), H - Inches(1.75), W - Inches(1.2), Inches(0.8),
-                        font_name=T["font_body"], font_size=18, bold=False,
-                        color=T["accent"], align=PP_ALIGN.LEFT)
-    add_rect(slide, Inches(0.6), H - Inches(0.85), Inches(3), Pt(3), T["accent"])
+                        Inches(0.5), split + Inches(0.35), W - Inches(1.0), Inches(0.8),
+                        font_name=T["font_body"], font_size=19, bold=False,
+                        color=sub_color, align=PP_ALIGN.LEFT)
+    # Short accent underline below subtitle
+    add_rect(slide, Inches(0.5), split + Inches(1.4), Inches(3.5), Pt(3), T["accent"])
     add_footer(slide, presentation_title, slide_num, W, H, T)
 
 
@@ -530,7 +538,7 @@ def layout_two_column(slide, data, W, H, T, presentation_title, slide_num):
     add_textbox(slide, "Key Points",
                 PAD, label_y, col_w, Inches(0.3),
                 font_name=T["font_body"], font_size=11, bold=True,
-                color=T["text"], align=PP_ALIGN.CENTER)
+                color="FFFFFF", align=PP_ALIGN.CENTER)
     add_bullets(slide, bullets[:mid],
                 PAD, bul_y, col_w, col_h,
                 font_name=T["font_body"], font_size=14,
@@ -541,7 +549,7 @@ def layout_two_column(slide, data, W, H, T, presentation_title, slide_num):
     add_textbox(slide, "Details",
                 col2_x, label_y, col_w, Inches(0.3),
                 font_name=T["font_body"], font_size=11, bold=True,
-                color=T["text"], align=PP_ALIGN.CENTER)
+                color="FFFFFF", align=PP_ALIGN.CENTER)
     add_bullets(slide, bullets[mid:],
                 col2_x, bul_y, col_w, col_h,
                 font_name=T["font_body"], font_size=14,

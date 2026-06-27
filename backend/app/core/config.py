@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     ALLOW_METHODS: List[str] = ["*"]
     ALLOW_HEADERS: List[str] = ["*"]
 
+    JWT_SECRET_KEY: str = "pptgen-dev-secret-change-in-prod"
+    DATABASE_URL: str = ""
     ENVIRONMENT: str = "development"
 
     @field_validator("CORS_ORIGINS", mode="before")
