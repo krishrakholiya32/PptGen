@@ -528,7 +528,7 @@ def layout_title_content(slide, data, W, H, T, presentation_title, slide_num):
 def layout_two_column(slide, data, W, H, T, presentation_title, slide_num):
     set_bg(slide, T["bg"])
     bullets = get_bullets(data, max_bullets=8)
-    mid = max(1, len(bullets) // 2)
+    mid = max(1, (len(bullets) + 1) // 2)  # ceiling split — left gets equal or more
     col_w = W / 2 - Inches(0.8)
     col_h = _content_h(H) - Inches(0.35)   # minus label strip
     label_y = _content_top()
@@ -583,17 +583,22 @@ def layout_centered(slide, data, W, H, T, presentation_title, slide_num):
     add_rect(slide, 0, 0, W, Pt(6), T["accent"])
     add_rect(slide, 0, H - FOOTER_H - Pt(6), W, Pt(6), T["accent"])
     title = data.get("title", "")
-    # Title centered in its band
+    n = len(title)
+    title_fsz = 34 if n <= 35 else (28 if n <= 55 else 22)
+    # On dark bg: white title reads better than hot-pink-on-black
+    title_color = ("FFFFFF" if is_dark(f"#{T['bg']}") else T["accent"])
+    title_h = Inches(1.1) if title_fsz >= 28 else Inches(1.4)
     add_textbox(slide, title,
-                Inches(1.0), Inches(0.3), W - Inches(2.0), Inches(1.1),
-                font_name=T["font_title"], font_size=34, bold=True,
-                color=T["accent"], align=PP_ALIGN.CENTER)
-    add_rect(slide, W / 2 - Inches(2), Inches(1.45), Inches(4), Pt(2), T["accent"])
+                Inches(0.8), Inches(0.25), W - Inches(1.6), title_h,
+                font_name=T["font_title"], font_size=title_fsz, bold=True,
+                color=title_color, align=PP_ALIGN.CENTER)
+    divider_y = Inches(0.25) + title_h + Pt(4)
+    add_rect(slide, W / 2 - Inches(2), divider_y, Inches(4), Pt(2), T["accent"])
     bullets = get_bullets(data)
-    bul_top = Inches(1.6)
+    bul_top = divider_y + Pt(8)
     bul_h   = H - bul_top - FOOTER_H - Inches(0.1)
     add_bullets(slide, bullets,
-                Inches(1.5), bul_top, W - Inches(3.0), bul_h,
+                Inches(1.2), bul_top, W - Inches(2.4), bul_h,
                 font_name=T["font_body"], font_size=17,
                 text_color=T["text"], accent_color=T["accent"])
     add_footer(slide, presentation_title, slide_num, W, H, T)
