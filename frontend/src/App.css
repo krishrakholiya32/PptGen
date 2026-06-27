@@ -1936,17 +1936,6 @@ body::before {
   font-weight: 600; margin-bottom: 4px; text-align: center;
 }
 
-/* ── Print styles ───────────────────────────────── */
-@media print {
-  body > * { display: none !important; }
-  .print-target { display: block !important; }
-  .print-target .slide-card { break-inside: avoid; page-break-inside: avoid; }
-  .print-target .slides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .print-target .slide-mini-preview { aspect-ratio: 16/9; }
-  .tracker-outer > .card:first-child { display: none; }
-  .preview-header, .regen-status, .slide-card-actions, .slide-card-edit-btn,
-  .slide-editor-overlay, .tracker-actions { display: none !important; }
-}
 
 /* ── Inline slide editor (PowerPoint-style) ──── */
 .inline-editor {
@@ -2333,6 +2322,13 @@ body::before {
   max-width: 1280px;
   margin: 0 auto;
   min-height: 100vh;
+}
+
+/* ── Landing: no animations ─────────────────── */
+.landing-page *,
+.landing-page *::before,
+.landing-page *::after {
+  animation: none !important;
 }
 
 /* ── Left hero panel ─────────────────────────── */

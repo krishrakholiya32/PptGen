@@ -125,10 +125,6 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
     })
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
-
   const isDone  = job.status === "done"
   const isError = job.status === "error"
 
@@ -147,7 +143,6 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
               <a href={`${BASE}${job.download_url}`} download className="btn-download">
                 ⬇ Download .pptx
               </a>
-              <button className="btn-action-sm" onClick={handlePrint}>🖨 Export PDF</button>
               <button className="btn-secondary" onClick={onReset}>← New presentation</button>
             </div>
           </div>
