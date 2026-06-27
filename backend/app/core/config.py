@@ -7,10 +7,26 @@ import json
 
 class Settings(BaseSettings):
     GROQ_API_KEY: str
+    GROQ_API_KEYS: str = ""   # comma-separated extra keys for rotation
     GEMINI_API_KEY: str = ""
+    GEMINI_API_KEYS: str = "" # comma-separated extra keys for rotation
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     GROQ_TEXT_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+    @property
+    def all_groq_keys(self) -> List[str]:
+        keys = [self.GROQ_API_KEY]
+        if self.GROQ_API_KEYS:
+            keys += [k.strip() for k in self.GROQ_API_KEYS.split(",") if k.strip()]
+        return keys
+
+    @property
+    def all_gemini_keys(self) -> List[str]:
+        keys = [self.GEMINI_API_KEY] if self.GEMINI_API_KEY else []
+        if self.GEMINI_API_KEYS:
+            keys += [k.strip() for k in self.GEMINI_API_KEYS.split(",") if k.strip()]
+        return keys
     UPLOAD_DIR: str = "uploads"
     OUTPUT_DIR: str = "outputs"
     MAX_UPLOAD_SIZE_MB: int = 20

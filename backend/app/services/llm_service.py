@@ -1,39 +1,46 @@
 import json
 import base64
 import httpx
-from typing import Optional
 from app.core.config import settings
 
 
 class LLMService:
     """
-    Primary: Gemini (gemini-3.1-flash-lite) — better quality, 500 RPD free
+    Primary: Gemini (gemini-3.1-flash-lite) — better quality, 500 RPD per key
+    Fallback: Groq (llama-3.3-70b-versatile) — better quality, 14,400 TPD per key
     Vision:  Groq (llama-4-scout-17b) — free, analyzes images/slides
-    Fallback: Groq (llama-3.3-70b-versatile) — better quality, 14,400 TPD
+    Multiple keys per provider rotate automatically on 429.
     """
 
     def __init__(self):
-        self.groq_headers = {
-            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        pass
+
+    def _groq_headers(self, key: str) -> dict:
+        return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
     async def generate_text(self, prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-        """Generate text content via Gemini. Falls back to Groq if Gemini fails."""
-        try:
-            return await self._gemini_text(prompt, system, max_tokens)
-        except Exception as e:
-            print(f"[LLM] Gemini failed: {e}. Trying Groq fallback...")
+        """Try all Gemini keys, then all Groq keys."""
+        gemini_errors = []
+        for key in settings.all_gemini_keys:
             try:
-                return await self._groq_text(prompt, system, max_tokens)
-            except Exception as e2:
-                raise RuntimeError(f"All LLM providers failed. Gemini: {e} | Groq: {e2}")
+                return await self._gemini_text(prompt, system, max_tokens, key)
+            except Exception as e:
+                gemini_errors.append(str(e))
+                print(f"[LLM] Gemini key ...{key[-6:]} failed: {e}")
+
+        groq_errors = []
+        for key in settings.all_groq_keys:
+            try:
+                return await self._groq_text(prompt, system, max_tokens, key)
+            except Exception as e:
+                groq_errors.append(str(e))
+                print(f"[LLM] Groq key ...{key[-6:]} failed: {e}")
+
+        raise RuntimeError(f"All providers exhausted. Gemini: {gemini_errors} | Groq: {groq_errors}")
 
     async def generate_json(self, prompt: str, system: str = "", max_tokens: int = 3000) -> dict:
-        """Generate structured JSON output."""
         json_system = system + "\nYou must respond ONLY with valid JSON. No markdown, no explanation, no backticks."
         raw = await self.generate_text(prompt, json_system, max_tokens)
-        # Strip any accidental markdown fences
         raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
         return json.loads(raw)
 
@@ -42,34 +49,34 @@ class LLMService:
         with open(image_path, "rb") as f:
             image_data = base64.b64encode(f.read()).decode("utf-8")
 
-        # Detect mime type
         ext = image_path.lower().split(".")[-1]
         mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(ext, "image/png")
 
         payload = {
             "model": settings.GROQ_VISION_MODEL,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_data}"}},
-                        {"type": "text", "text": prompt}
-                    ]
-                }
-            ],
+            "messages": [{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_data}"}},
+                {"type": "text", "text": prompt}
+            ]}],
             "max_tokens": 1500
         }
 
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=self.groq_headers,
-                json=payload
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
+        for key in settings.all_groq_keys:
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers=self._groq_headers(key),
+                        json=payload
+                    )
+                    resp.raise_for_status()
+                    return resp.json()["choices"][0]["message"]["content"]
+            except Exception as e:
+                print(f"[LLM] Vision key ...{key[-6:]} failed: {e}")
 
-    async def _groq_text(self, prompt: str, system: str, max_tokens: int) -> str:
+        raise RuntimeError("All Groq vision keys failed")
+
+    async def _groq_text(self, prompt: str, system: str, max_tokens: int, key: str) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -85,23 +92,20 @@ class LLMService:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
-                headers=self.groq_headers,
+                headers=self._groq_headers(key),
                 json=payload
             )
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
 
-    async def _gemini_text(self, prompt: str, system: str, max_tokens: int) -> str:
-        if not settings.GEMINI_API_KEY:
-            raise RuntimeError("Gemini API key not configured")
-
+    async def _gemini_text(self, prompt: str, system: str, max_tokens: int, key: str) -> str:
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
         payload = {
             "contents": [{"parts": [{"text": full_prompt}]}],
             "generationConfig": {"maxOutputTokens": max_tokens}
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={key}"
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
