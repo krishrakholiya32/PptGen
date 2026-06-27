@@ -325,6 +325,121 @@ function SlideCard({ slide, index, total, isSelected, onClick, onEdit, onMoveUp,
 }
 
 
+// ── Inline slide editor (PowerPoint-style, no modal) ─────────────────────────
+
+function InlineSlideEditor({ slide, index, style, onSave, onClose, onRegenerate }) {
+  const [title,     setTitle]     = useState(slide.title || "")
+  const [bullets,   setBullets]   = useState(slide.bullets || [])
+  const [notes,     setNotes]     = useState(slide.speaker_notes || "")
+  const [regenInst, setRegenInst] = useState("")
+  const [tab,       setTab]       = useState("edit")
+
+  const addBullet    = ()     => setBullets(b => [...b, ""])
+  const removeBullet = (i)    => setBullets(b => b.filter((_, j) => j !== i))
+  const updateBullet = (i, v) => setBullets(b => b.map((x, j) => j === i ? v : x))
+  const handleSave   = ()     => onSave(index, { title, bullets: bullets.filter(b => b.trim()), speaker_notes: notes })
+
+  const liveSlide = { ...slide, title, bullets, speaker_notes: notes }
+
+  return (
+    <div className="inline-editor">
+      <div className="inline-editor-header">
+        <span className="inline-editor-title">Slide {index + 1} — Edit</span>
+        <button className="inline-editor-close" onClick={onClose}>✕ Close</button>
+      </div>
+
+      <div className="inline-editor-body">
+        {/* Left: large live preview */}
+        <div className="inline-editor-preview">
+          <MiniSlide slide={liveSlide} style={style} large={true} />
+          <p className="inline-editor-hint">Preview updates as you type</p>
+        </div>
+
+        {/* Right: editable fields */}
+        <div className="inline-editor-fields">
+          <div className="inline-editor-tabs">
+            {[["edit","✏️ Content"], ["notes","📝 Notes"], ["regen","🔄 AI Rewrite"]].map(([id, label]) => (
+              <button key={id} className={`inline-tab ${tab === id ? "active" : ""}`} onClick={() => setTab(id)}>{label}</button>
+            ))}
+          </div>
+
+          {tab === "edit" && (
+            <>
+              <div className="inline-field">
+                <label className="inline-label">Title</label>
+                <input className="inline-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Slide title" />
+              </div>
+              <div className="inline-field">
+                <label className="inline-label">Bullet points</label>
+                <div className="inline-bullets">
+                  {bullets.map((b, i) => (
+                    <div key={i} className="inline-bullet-row">
+                      <span className="inline-bullet-dot">●</span>
+                      <input
+                        className="inline-bullet-input"
+                        value={b}
+                        onChange={e => updateBullet(i, e.target.value)}
+                        placeholder={`Bullet ${i + 1}`}
+                      />
+                      <button className="inline-bullet-del" onClick={() => removeBullet(i)}>✕</button>
+                    </div>
+                  ))}
+                  <button className="inline-bullet-add" onClick={addBullet}>+ Add bullet</button>
+                </div>
+              </div>
+              <div className="inline-footer">
+                <button className="inline-cancel" onClick={onClose}>Cancel</button>
+                <button className="inline-save" onClick={handleSave}>Save & Re-render →</button>
+              </div>
+            </>
+          )}
+
+          {tab === "notes" && (
+            <>
+              <div className="inline-field" style={{ flex: 1 }}>
+                <label className="inline-label">Speaker notes</label>
+                <textarea
+                  className="inline-textarea"
+                  rows={8}
+                  placeholder="Notes for the presenter…"
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                />
+              </div>
+              <div className="inline-footer">
+                <button className="inline-cancel" onClick={onClose}>Cancel</button>
+                <button className="inline-save" onClick={handleSave}>Save & Re-render →</button>
+              </div>
+            </>
+          )}
+
+          {tab === "regen" && (
+            <>
+              <div className="inline-field">
+                <label className="inline-label">Direction (optional)</label>
+                <textarea
+                  className="inline-textarea"
+                  rows={4}
+                  placeholder="e.g. 'make it more concise', 'add statistics', 'focus on benefits'"
+                  value={regenInst}
+                  onChange={e => setRegenInst(e.target.value)}
+                />
+              </div>
+              <div className="inline-footer">
+                <button className="inline-cancel" onClick={onClose}>Cancel</button>
+                <button className="inline-save" onClick={() => { onRegenerate(index, regenInst); onClose() }}>
+                  🔄 Regenerate with AI →
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnly = false }) {
@@ -437,8 +552,8 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
           <SlideCard
             key={i} slide={slide} index={i} total={slides.length}
             isSelected={selected === i}
-            onClick={i => { setSelected(i); if (!readOnly) setEditingIndex(i) }}
-            onEdit={i => setEditingIndex(i)}
+            onClick={i => { setSelected(i); if (!readOnly) setEditingIndex(editingIndex === i ? null : i) }}
+            onEdit={i => setEditingIndex(editingIndex === i ? null : i)}
             onMoveUp={handleMoveUp}
             onMoveDown={handleMoveDown}
             style={slideStyle}
@@ -447,9 +562,9 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
         ))}
       </div>
 
-      {/* PowerPoint-style editor modal */}
+      {/* Inline PowerPoint-style editor — no modal */}
       {!readOnly && editSlide && (
-        <SlideEditorModal
+        <InlineSlideEditor
           slide={editSlide}
           index={editingIndex}
           style={slideStyle}

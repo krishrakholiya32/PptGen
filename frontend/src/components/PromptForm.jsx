@@ -36,7 +36,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
   const [tone, setTone]                 = useState("general")
   const [extraContext, setExtraContext]  = useState("")
   const [showContext, setShowContext]    = useState(false)
-  const [useWebSearch, setUseWebSearch]  = useState(false)
+  const [useWebSearch, setUseWebSearch]  = useState(true)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState("")
 

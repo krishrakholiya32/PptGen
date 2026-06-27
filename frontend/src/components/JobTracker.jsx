@@ -144,9 +144,6 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
               ⬇ Download PowerPoint
             </a>
             <div className="done-secondary-actions">
-              <button className="btn-action-sm" onClick={handleShare}>
-                {copied ? "✓ Copied!" : "🔗 Share link"}
-              </button>
               <button className="btn-action-sm" onClick={handlePrint}>
                 🖨 Export PDF
               </button>
