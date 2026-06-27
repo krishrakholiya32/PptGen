@@ -177,11 +177,11 @@ async def fetch_images_for_slides(slides: list, session_dir: str) -> list:
                     if slide.get("layout_type") in ("title_content", "blank", "two_column"):
                         slide["layout_type"] = "image_right"
 
-                    print(f"[ImageFetcher] ✓ '{query}' → {img_filename}")
+                    print(f"[ImageFetcher] OK '{query}' -> {img_filename}")
                     downloaded = True
                     break
                 except Exception as e:
-                    print(f"[ImageFetcher] ✗ Download failed for '{query}': {e}")
+                    print(f"[ImageFetcher] FAIL Download failed for '{query}': {e}")
                     continue
 
             if not downloaded:
