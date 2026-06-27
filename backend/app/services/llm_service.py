@@ -7,9 +7,9 @@ from app.core.config import settings
 
 class LLMService:
     """
-    Primary: Groq (llama-3.1-8b-instant) — free, fast, 800K tokens/day
+    Primary: Gemini (gemini-3.1-flash-lite) — better quality, 500 RPD free
     Vision:  Groq (llama-4-scout-17b) — free, analyzes images/slides
-    Fallback: Gemini (gemini-3.1-flash-lite) — free tier, 500 RPD
+    Fallback: Groq (llama-3.1-8b-instant) — 800K tokens/day
     """
 
     def __init__(self):
@@ -19,15 +19,15 @@ class LLMService:
         }
 
     async def generate_text(self, prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-        """Generate text content via Groq. Falls back to Gemini if Groq fails."""
+        """Generate text content via Gemini. Falls back to Groq if Gemini fails."""
         try:
-            return await self._groq_text(prompt, system, max_tokens)
+            return await self._gemini_text(prompt, system, max_tokens)
         except Exception as e:
-            print(f"[LLM] Groq failed: {e}. Trying Gemini fallback...")
+            print(f"[LLM] Gemini failed: {e}. Trying Groq fallback...")
             try:
-                return await self._gemini_text(prompt, system, max_tokens)
+                return await self._groq_text(prompt, system, max_tokens)
             except Exception as e2:
-                raise RuntimeError(f"All LLM providers failed. Groq: {e} | Gemini: {e2}")
+                raise RuntimeError(f"All LLM providers failed. Gemini: {e} | Groq: {e2}")
 
     async def generate_json(self, prompt: str, system: str = "", max_tokens: int = 3000) -> dict:
         """Generate structured JSON output."""
