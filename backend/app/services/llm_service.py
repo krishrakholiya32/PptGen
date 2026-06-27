@@ -9,7 +9,7 @@ class LLMService:
     """
     Primary: Gemini (gemini-3.1-flash-lite) — better quality, 500 RPD free
     Vision:  Groq (llama-4-scout-17b) — free, analyzes images/slides
-    Fallback: Groq (llama-3.1-8b-instant) — 800K tokens/day
+    Fallback: Groq (llama-3.3-70b-versatile) — better quality, 14,400 TPD
     """
 
     def __init__(self):
