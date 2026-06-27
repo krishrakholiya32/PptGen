@@ -17,7 +17,7 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      # ── Required secrets — you'll be prompted for these in the dashboard ──
+      # ── Required secrets — fill these in the Render dashboard ──
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
@@ -28,7 +28,9 @@ services:
         sync: false
       - key: PIXABAY_API_KEY
         sync: false
-      # ── Non-secret config (safe to commit) ──
+      - key: JWT_SECRET_KEY
+        sync: false
+      # ── Non-secret config ──
       - key: ENVIRONMENT
         value: production
       - key: GROQ_TEXT_MODEL
@@ -41,6 +43,5 @@ services:
         value: outputs
       - key: MAX_UPLOAD_SIZE_MB
         value: "20"
-      # Set this to your Netlify frontend URL (comma-separated if multiple)
       - key: CORS_ORIGINS
-        value: "https://kpptgen.netlify.app,https://pptgen.zrik.tech,http://localhost:5173"
+        value: '["https://kpptgen.netlify.app","https://pptgen.zrik.tech","http://localhost:5173"]'
