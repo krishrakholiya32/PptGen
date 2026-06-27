@@ -9,7 +9,7 @@ class LLMService:
     """
     Primary: Groq (llama-3.1-8b-instant) — free, fast, 800K tokens/day
     Vision:  Groq (llama-4-scout-17b) — free, analyzes images/slides
-    Fallback: Gemini (gemini-2.0-flash) — free tier, 1M tokens/day
+    Fallback: Gemini (gemini-3.1-flash-lite) — free tier, 500 RPD
     """
 
     def __init__(self):
@@ -101,7 +101,7 @@ class LLMService:
             "generationConfig": {"maxOutputTokens": max_tokens}
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()

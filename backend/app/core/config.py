@@ -8,6 +8,7 @@ import json
 class Settings(BaseSettings):
     GROQ_API_KEY: str
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     GROQ_TEXT_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     UPLOAD_DIR: str = "uploads"
