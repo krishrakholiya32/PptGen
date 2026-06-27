@@ -258,6 +258,22 @@ def add_bullets(slide, bullets, x, y, w, h,
         run.font.color.rgb = hex_to_rgb(text_color)
 
 
+def _add_image_placeholder(slide, x, y, w, h, T):
+    """Styled placeholder when no image is available."""
+    add_rect(slide, x, y, w, h, T["accent2"])
+    # Subtle diagonal stripes
+    stripe_c = _tint(T["accent2"], 0.88)
+    n_stripes = 6
+    step = w // n_stripes
+    for i in range(n_stripes):
+        add_rect(slide, x + i * step, y, Pt(1.5), h, stripe_c)
+    # Centered label
+    add_textbox(slide, "[  IMAGE  ]",
+                x, y + (h - Inches(0.3)) // 2, w, Inches(0.3),
+                font_name=T["font_body"], font_size=11, bold=True,
+                color=T["text_muted"], align=PP_ALIGN.CENTER)
+
+
 def resolve_image(filename, image_dir):
     if not filename or not image_dir:
         return None
@@ -285,26 +301,21 @@ def add_footer(slide, presentation_title: str, slide_num: int, W, H, T):
                 color=T["accent"], align=PP_ALIGN.RIGHT)
 
 
-def add_slide_header(slide, data, W, H, T, title_font_size=30):
-    """
-    Top accent bar + title band.
-    Title is VERTICALLY CENTERED within a proper title band (not glued to top).
-    Title band height = 1.1" giving visual breathing room.
-    """
+def add_slide_header(slide, data, W, H, T, title_font_size=None):
+    """Top accent bar + title band with word-wrap and auto font-size."""
+    from pptx.enum.text import MSO_ANCHOR
     TITLE_BAND_H = Inches(1.1)
-    # Accent bar at very top
-    add_rect(slide, 0, 0, W, Pt(6), T["accent"])
-    # Title band background — subtle surface color
-    add_rect(slide, 0, Pt(6), W, TITLE_BAND_H - Pt(6), T["surface"])
     title = data.get("title", "")
-    # Title textbox spans full band height — vertical centering handled by anchor
+    if title_font_size is None:
+        n = len(title)
+        title_font_size = 28 if n <= 45 else (23 if n <= 70 else 19)
+    add_rect(slide, 0, 0, W, Pt(6), T["accent"])
+    add_rect(slide, 0, Pt(6), W, TITLE_BAND_H - Pt(6), T["surface"])
     txBox = slide.shapes.add_textbox(
-        Inches(0.5), Pt(6), W - Inches(1.2), TITLE_BAND_H - Pt(6)
+        Inches(0.5), Pt(6), W - Inches(1.4), TITLE_BAND_H - Pt(6)
     )
     tf = txBox.text_frame
-    tf.word_wrap = False
-    # Set vertical anchor to MIDDLE via XML (python-pptx enum: MSO_ANCHOR.MIDDLE = 3)
-    from pptx.enum.text import MSO_ANCHOR
+    tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.LEFT
@@ -314,18 +325,17 @@ def add_slide_header(slide, data, W, H, T, title_font_size=30):
     run.font.size = Pt(title_font_size)
     run.font.bold = True
     run.font.color.rgb = hex_to_rgb(T["text"])
-    # Accent underline below title band
     add_rect(slide, Inches(0.5), TITLE_BAND_H + Pt(2), Inches(4), Pt(2), T["accent"])
 
 
 def add_slide_number_badge(slide, data, W, T):
     slide_num = data.get("slide_number", "")
     if slide_num:
-        add_rect(slide, W - Inches(0.75), Inches(0.08), Inches(0.55), Inches(0.28), T["accent2"])
+        add_rect(slide, W - Inches(0.75), Inches(0.08), Inches(0.55), Inches(0.28), T["accent"])
         add_textbox(slide, str(slide_num),
                     W - Inches(0.75), Inches(0.08), Inches(0.55), Inches(0.28),
                     font_name=T["font_body"], font_size=10, bold=True,
-                    color=T["text"], align=PP_ALIGN.CENTER)
+                    color="FFFFFF", align=PP_ALIGN.CENTER)
 
 
 # ── Slide Layouts ─────────────────────────────────────────────────────────────
@@ -380,9 +390,9 @@ def layout_image_right(slide, data, W, H, T, img_path, presentation_title, slide
         try:
             fit_image_to_slot(img_path, img_w, img_h, slide, img_x, img_y)
         except Exception:
-            add_rect(slide, img_x, img_y, img_w, img_h, T["accent2"])
+            _add_image_placeholder(slide, img_x, img_y, img_w, img_h, T)
     else:
-        add_rect(slide, img_x, img_y, img_w, img_h, T["accent2"])
+        _add_image_placeholder(slide, img_x, img_y, img_w, img_h, T)
     bullets = get_bullets(data)
     text_w = W / 2 - Inches(0.7)
     add_bullets(slide, bullets,
@@ -403,29 +413,13 @@ def layout_image_left(slide, data, W, H, T, img_path, presentation_title, slide_
         try:
             fit_image_to_slot(img_path, img_w, img_h, slide, Inches(0.3), img_y)
         except Exception:
-            add_rect(slide, Inches(0.3), img_y, img_w, img_h, T["accent2"])
+            _add_image_placeholder(slide, Inches(0.3), img_y, img_w, img_h, T)
     else:
-        add_rect(slide, Inches(0.3), img_y, img_w, img_h, T["accent2"])
+        _add_image_placeholder(slide, Inches(0.3), img_y, img_w, img_h, T)
     text_x = W / 2 + Inches(0.2)
     text_w = W / 2 - Inches(0.7)
     bullets = get_bullets(data)
-    # Title on right side
-    add_rect(slide, 0, 0, W, Pt(6), T["accent"])
-    add_rect(slide, 0, Pt(6), W, TITLE_BAND_H - Pt(6), T["surface"])
-    txBox = slide.shapes.add_textbox(text_x, Pt(6), text_w, TITLE_BAND_H - Pt(6))
-    tf = txBox.text_frame
-    tf.word_wrap = False
-    from pptx.enum.text import MSO_ANCHOR
-    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.LEFT
-    run = p.add_run()
-    run.text = data.get("title", "")
-    run.font.name = T["font_title"]
-    run.font.size = Pt(26)
-    run.font.bold = True
-    run.font.color.rgb = hex_to_rgb(T["text"])
-    add_rect(slide, text_x, TITLE_BAND_H + Pt(2), Inches(3), Pt(2), T["accent"])
+    add_slide_header(slide, data, W, H, T)
     add_bullets(slide, bullets,
                 text_x, _content_top(), text_w, _content_h(H),
                 font_name=T["font_body"], font_size=15,
@@ -441,10 +435,10 @@ def layout_image_top(slide, data, W, H, T, img_path, presentation_title, slide_n
         try:
             fit_image_to_slot(img_path, W, img_h, slide, 0, 0)
         except Exception:
-            add_rect(slide, 0, 0, W, img_h, T["accent2"])
+            _add_image_placeholder(slide, 0, 0, W, img_h, T)
     else:
-        add_rect(slide, 0, 0, W, img_h, T["accent2"])
-    add_rect(slide, 0, img_h - Inches(0.65), W, Inches(0.65), "111111")
+        _add_image_placeholder(slide, 0, 0, W, img_h, T)
+    add_rect(slide, 0, img_h - Inches(0.65), W, Inches(0.65), "0D0D0D")
     add_rect(slide, 0, img_h, W, Pt(4), T["accent"])
     title = data.get("title", "")
     add_textbox(slide, title,
@@ -468,11 +462,11 @@ def layout_image_bottom(slide, data, W, H, T, img_path, presentation_title, slid
         try:
             fit_image_to_slot(img_path, W, H - img_y - FOOTER_H, slide, 0, img_y)
         except Exception:
-            add_rect(slide, 0, img_y, W, H - img_y - FOOTER_H, T["accent2"])
+            _add_image_placeholder(slide, 0, img_y, W, H - img_y - FOOTER_H, T)
     else:
-        add_rect(slide, 0, img_y, W, H - img_y - FOOTER_H, T["accent2"])
+        _add_image_placeholder(slide, 0, img_y, W, H - img_y - FOOTER_H, T)
     add_rect(slide, 0, img_y, W, Pt(4), T["accent"])
-    add_slide_header(slide, data, W, H, T, title_font_size=28)
+    add_slide_header(slide, data, W, H, T)
     add_slide_number_badge(slide, data, W, T)
     bul_top = _content_top()
     bul_h   = img_y - bul_top - Inches(0.1)
@@ -560,14 +554,15 @@ def layout_two_column(slide, data, W, H, T, presentation_title, slide_num):
 
 def layout_accent_block(slide, data, W, H, T, presentation_title, slide_num):
     set_bg(slide, T["bg"])
-    add_rect(slide, W - Inches(1.1), _content_top(), Inches(1.1), _content_h(H), T["accent2"])
-    add_textbox(slide, data.get("title", "")[:15],
-                W - Inches(1.05), _content_top() + Inches(0.9), Inches(0.9), _content_h(H) - Inches(1.0),
-                font_name=T["font_body"], font_size=10, bold=True,
-                color=T["accent"], align=PP_ALIGN.CENTER)
+    # Right accent bar with thin stripe pattern for depth
+    bar_x = W - Inches(0.9)
+    bar_w = Inches(0.9)
+    add_rect(slide, bar_x, _content_top(), bar_w, _content_h(H), T["accent2"])
+    add_rect(slide, bar_x + Inches(0.15), _content_top(), Pt(2), _content_h(H), T["accent"])
+    add_rect(slide, bar_x + Inches(0.35), _content_top(), Pt(2), _content_h(H), T["accent"])
     bullets = get_bullets(data)
     add_bullets(slide, bullets,
-                PAD, _content_top(), W - Inches(1.7), _content_h(H),
+                PAD, _content_top(), W - Inches(1.5), _content_h(H),
                 font_name=T["font_body"], font_size=16,
                 text_color=T["text"], accent_color=T["accent"])
     add_slide_header(slide, data, W, H, T)
@@ -597,19 +592,23 @@ def layout_centered(slide, data, W, H, T, presentation_title, slide_num):
 
 
 def layout_section_break(slide, data, W, H, T, presentation_title, slide_num):
-    set_bg(slide, T["surface"])
-    add_rect(slide, 0, 0, Inches(0.5), H, T["accent"])
+    # Always use accent bg so section breaks stand out on both light and dark themes
+    set_bg(slide, T["accent"])
+    add_rect(slide, 0, 0, Inches(0.55), H, T["accent2"])
+    add_rect(slide, Inches(0.55), 0, W - Inches(0.55), H * 0.45, T["accent2"])
     title = data.get("title", "")
+    n = len(title)
+    fsz = 44 if n <= 40 else (36 if n <= 60 else 28)
     add_textbox(slide, title,
-                Inches(0.8), Inches(2.5), W - Inches(1.2), Inches(2.0),
-                font_name=T["font_title"], font_size=48, bold=True,
-                color=T["accent"], align=PP_ALIGN.LEFT)
+                Inches(0.9), Inches(2.2), W - Inches(1.4), Inches(2.4),
+                font_name=T["font_title"], font_size=fsz, bold=True,
+                color="FFFFFF", align=PP_ALIGN.LEFT)
     subtitle = data.get("subtitle", "")
     if subtitle:
         add_textbox(slide, subtitle,
-                    Inches(0.8), Inches(4.6), W - Inches(1.2), Inches(0.8),
-                    font_name=T["font_body"], font_size=18, bold=False,
-                    color=T["text_muted"], align=PP_ALIGN.LEFT)
+                    Inches(0.9), Inches(4.8), W - Inches(1.4), Inches(0.8),
+                    font_name=T["font_body"], font_size=17, bold=False,
+                    color="D0D8E8", align=PP_ALIGN.LEFT)
     add_footer(slide, presentation_title, slide_num, W, H, T)
 
 
@@ -651,7 +650,7 @@ class PPTXRenderer:
                     recent=recent_layouts
                 )
                 recent_layouts.append(chosen)
-                print(f"[Renderer] Slide {slide_num} '{slide_data.get('title','')[:30]}' → {chosen}")
+                print(f"[Renderer] Slide {slide_num} '{slide_data.get('title','')[:30]}' -> {chosen}")
 
                 dispatch = {
                     "image_right":   lambda s,d: layout_image_right(s, d, W, H, T, img_path, presentation_title, slide_num),
