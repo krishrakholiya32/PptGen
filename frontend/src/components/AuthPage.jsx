@@ -10,13 +10,13 @@ function debounce(fn, ms) {
 const FEATURES = [
   { icon: "✦", title: "AI-Powered Content", desc: "Groq LLaMA generates smart, structured slide content instantly" },
   { icon: "◈", title: "Live Web Research", desc: "Automatically pulls current facts and data into your slides" },
-  { icon: "◉", title: "Beautiful Themes", desc: "10+ professional themes with custom color controls" },
+  { icon: "◉", title: "Beautiful Themes", desc: "7 professional themes with custom color controls" },
   { icon: "⬡", title: "Instant PPTX Export", desc: "Download fully editable PowerPoint files in seconds" },
 ]
 
 const STATS = [
   { value: "10s", label: "Avg generation time" },
-  { value: "30+", label: "Slide layouts" },
+  { value: "7", label: "Themes" },
   { value: "10", label: "Languages supported" },
 ]
 

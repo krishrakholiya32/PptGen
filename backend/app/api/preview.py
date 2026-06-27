@@ -42,10 +42,10 @@ history_store = _get_history()
 
 # ── Output cleanup ────────────────────────────────────────────────────────────
 
-def cleanup_old_outputs(retention_days: int = 7):
-    """Delete PPTX and auto images older than retention_days. Called on startup."""
+def cleanup_old_outputs(retention_hours: int = 1):
+    """Delete PPTX and auto images older than retention_hours. Called on startup and each generation."""
     try:
-        cutoff = datetime.now() - timedelta(days=retention_days)
+        cutoff = datetime.now() - timedelta(hours=retention_hours)
         output_dir = settings.OUTPUT_DIR
         if not os.path.exists(output_dir):
             return
@@ -60,7 +60,7 @@ def cleanup_old_outputs(retention_days: int = 7):
                     os.remove(fpath)
                     removed += 1
         if removed:
-            print(f"[Cleanup] Removed {removed} old output file(s) (>{retention_days}d old)")
+            print(f"[Cleanup] Removed {removed} old output file(s) (>{retention_hours}h old)")
         # Also prune history entries whose files are gone
         store = _get_history()
         before = len(store)

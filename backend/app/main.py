@@ -30,9 +30,9 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 init_db()
 
-# On startup: clean outputs older than 7 days, prune expired history
+# On startup: clean outputs older than 1 hour, prune expired history
 from app.api.preview import cleanup_old_outputs
-cleanup_old_outputs(retention_days=7)
+cleanup_old_outputs(retention_hours=1)
 
 app.include_router(auth_module.router)
 app.include_router(generate.router, prefix="/api")

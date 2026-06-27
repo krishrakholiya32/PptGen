@@ -2307,7 +2307,8 @@ body::before {
 ═══════════════════════════════════════════════ */
 
 .landing-page {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   align-items: stretch;
   position: relative;
@@ -2321,7 +2322,7 @@ body::before {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 /* ── Landing: no animations ─────────────────── */
@@ -2337,7 +2338,7 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 48px;
+  padding: 36px 48px;
   overflow: hidden;
   background:
     radial-gradient(ellipse 100% 80% at 10% 20%, rgba(79,142,247,0.18) 0%, transparent 55%),
@@ -2374,7 +2375,7 @@ body::before {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 22px;
 }
 
 /* Logo row */
@@ -2389,24 +2390,24 @@ body::before {
   background: linear-gradient(135deg, var(--blue), var(--violet));
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; font-weight: 800; color: white;
-  font-family: var(--font-display);
+  font-family: 'Inter', sans-serif;
   box-shadow: 0 0 24px rgba(79,142,247,0.5);
 }
 .landing-logo-text {
-  font-family: var(--font-display);
-  font-size: 22px; font-weight: 800; color: var(--text-1);
+  font-family: 'Inter', sans-serif;
+  font-size: 20px; font-weight: 700; color: var(--text-1);
   letter-spacing: -0.02em;
 }
 
 /* Headline */
 .landing-headline h1 {
-  font-family: var(--font-display);
-  font-size: 46px;
+  font-family: 'Inter', sans-serif;
+  font-size: 36px;
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
   color: var(--text-1);
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .landing-gradient-text {
   background: linear-gradient(135deg, var(--blue-light), var(--violet-light));
@@ -2425,13 +2426,13 @@ body::before {
 .landing-features {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 .landing-feature {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 10px 14px;
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2469,25 +2470,26 @@ body::before {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  width: fit-content;
 }
 .landing-stat {
-  flex: 1;
-  padding: 16px 12px;
+  padding: 10px 20px;
   text-align: center;
   border-right: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
+  white-space: nowrap;
 }
 .landing-stat:last-child { border-right: none; }
 .landing-stat-value {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 800;
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: 700;
   color: var(--accent);
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .landing-stat-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-3);
   font-weight: 500;
   text-transform: uppercase;
@@ -2501,7 +2503,7 @@ body::before {
   justify-content: center;
   padding: 60px 48px;
   background: var(--bg);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .landing-form-wrap {
@@ -2516,7 +2518,7 @@ body::before {
   margin-bottom: 28px;
 }
 .landing-form-header h2 {
-  font-family: var(--font-display);
+  font-family: 'Inter', sans-serif;
   font-size: 26px;
   font-weight: 800;
   color: var(--text-1);

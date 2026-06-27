@@ -174,8 +174,10 @@ async def run_generation(job_id: str, req: GenerateRequest):
         output_dir = settings.OUTPUT_DIR
         os.makedirs(output_dir, exist_ok=True)
 
-        # Clean up stale upload sessions only (not outputs)
+        # Clean up stale upload sessions and old outputs
         _cleanup_old_sessions()
+        from app.api.preview import cleanup_old_outputs
+        cleanup_old_outputs(retention_hours=1)
 
         # Step 1: Extract style
         jobs[job_id].update({"progress": 10, "message": "Extracting style from template..."})
