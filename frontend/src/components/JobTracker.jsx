@@ -134,22 +134,21 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
 
   return (
     <div className="tracker-outer">
+      {/* ── Status / done card ── */}
       <div className="card tracker-card">
         {isDone ? (
           <div className="done-hero">
-            <div className="done-icon-wrap">📊</div>
-            <p className="done-title">Your presentation is ready!</p>
-            <p className="done-sub">Download and open in PowerPoint or Google Slides</p>
-            <a href={`${BASE}${job.download_url}`} download className="btn-download">
-              ⬇ Download PowerPoint
-            </a>
-            <div className="done-secondary-actions">
-              <button className="btn-action-sm" onClick={handlePrint}>
-                🖨 Export PDF
-              </button>
-              <button className="btn-preview-toggle" onClick={() => setShowPreview(v => !v)}>
-                {showPreview ? "▴ Hide slides" : "▾ View all slides"}
-              </button>
+            <div className="done-check">✓</div>
+            <div className="done-hero-text">
+              <p className="done-title">Presentation ready!</p>
+              <p className="done-sub">Download and open in PowerPoint or Google Slides</p>
+            </div>
+            <div className="done-actions-row">
+              <a href={`${BASE}${job.download_url}`} download className="btn-download">
+                ⬇ Download .pptx
+              </a>
+              <button className="btn-action-sm" onClick={handlePrint}>🖨 Export PDF</button>
+              <button className="btn-secondary" onClick={onReset}>← New presentation</button>
             </div>
           </div>
         ) : isError ? (
@@ -160,6 +159,9 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
             <div className="error-box">
               <p>{job.message}</p>
               <p className="error-hint">Check your API key in the .env file and try again.</p>
+            </div>
+            <div className="tracker-actions">
+              <button className="btn-secondary" onClick={onReset}>← Try again</button>
             </div>
           </>
         ) : (
@@ -177,38 +179,38 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
             </div>
             <div className="timeline">
               {STEPS.map((s, i) => (
-                <div
-                  key={i}
-                  className={`timeline-step ${job.progress >= s.at ? "active" : ""} ${
-                    job.progress < s.at && (i === 0 || job.progress >= STEPS[i-1]?.at) ? "current" : ""
-                  }`}
-                >
+                <div key={i} className={`timeline-step ${job.progress >= s.at ? "active" : ""}`}>
                   <div className="timeline-dot">{job.progress > s.at ? "✓" : "○"}</div>
                   <span>{s.label}</span>
                 </div>
               ))}
             </div>
-
-            {/* Live slide preview while generating */}
-            {liveSlides && (
-              <div className="live-preview-wrap">
-                <p className="live-preview-label">📑 Slides ready — rendering PPTX…</p>
-                <div className="card preview-card" style={{ marginTop: "12px" }}>
-                  <SlidePreview jobId={activeJobId} onRerender={handleRerender} prefetchedPlan={liveSlides} readOnly />
-                </div>
-              </div>
-            )}
+            <div className="tracker-actions">
+              <button className="btn-secondary" onClick={onReset}>← Cancel</button>
+            </div>
           </>
         )}
-
-        <div className="tracker-actions">
-          <button className="btn-secondary" onClick={onReset}>← Generate another</button>
-        </div>
       </div>
 
-      {isDone && showPreview && (
+      {/* ── Slide editor — always visible when done ── */}
+      {isDone && (
         <div className="card preview-card print-target">
+          <div className="preview-card-header">
+            <h3>Edit Slides</h3>
+            <p>Click any slide on the left to edit its content, reorder, or regenerate with AI.</p>
+          </div>
           <SlidePreview jobId={activeJobId} onRerender={handleRerender} />
+        </div>
+      )}
+
+      {/* Live slide list while generating (read-only) */}
+      {!isDone && !isError && liveSlides && (
+        <div className="card preview-card">
+          <div className="preview-card-header">
+            <h3>Slides being generated</h3>
+            <p>Content is ready — PPTX is rendering…</p>
+          </div>
+          <SlidePreview jobId={activeJobId} onRerender={handleRerender} prefetchedPlan={liveSlides} readOnly />
         </div>
       )}
     </div>
