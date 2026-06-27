@@ -109,7 +109,8 @@ export function AuthPage({ onLogin }) {
   }
 
   return (
-    <div className="landing" onKeyDown={handleKey}>
+    <div className="landing-page" onKeyDown={handleKey}>
+    <div className="landing">
       {/* ── Left panel ───────────────────────── */}
       <div className="landing-left">
         <div className="landing-left-inner">
@@ -236,12 +237,9 @@ export function AuthPage({ onLogin }) {
             </div>
           )}
 
-          <div className="auth-secure">
-            <span className="auth-secure-icon">🔒</span>
-            Secured with JWT authentication · No credit card required
-          </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }

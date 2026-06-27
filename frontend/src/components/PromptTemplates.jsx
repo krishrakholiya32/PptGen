@@ -1,3 +1,15 @@
+// color assigned per chip for eye-pleasing variety
+const CHIP_COLORS = [
+  { bg: "rgba(99,102,241,0.12)",  border: "rgba(99,102,241,0.35)",  text: "#a5b4fc" },  // indigo
+  { bg: "rgba(16,185,129,0.10)",  border: "rgba(16,185,129,0.30)",  text: "#6ee7b7" },  // emerald
+  { bg: "rgba(251,146,60,0.11)",  border: "rgba(251,146,60,0.32)",  text: "#fed7aa" },  // orange
+  { bg: "rgba(59,130,246,0.11)",  border: "rgba(59,130,246,0.32)",  text: "#93c5fd" },  // blue
+  { bg: "rgba(168,85,247,0.11)",  border: "rgba(168,85,247,0.32)",  text: "#d8b4fe" },  // purple
+  { bg: "rgba(20,184,166,0.10)",  border: "rgba(20,184,166,0.30)",  text: "#99f6e4" },  // teal
+  { bg: "rgba(234,179,8,0.10)",   border: "rgba(234,179,8,0.30)",   text: "#fde68a" },  // yellow
+  { bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.28)",   text: "#fca5a5" },  // red
+]
+
 export const PROMPT_TEMPLATES = [
   {
     icon: "🚀",
@@ -46,17 +58,21 @@ export function PromptTemplates({ onSelect }) {
     <div className="prompt-templates">
       <p className="templates-label">Start with a template:</p>
       <div className="templates-grid">
-        {PROMPT_TEMPLATES.map(t => (
-          <button
-            key={t.label}
-            className="template-chip"
-            onClick={() => onSelect(t.prompt)}
-            title={t.prompt}
-          >
-            <span className="template-icon">{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+        {PROMPT_TEMPLATES.map((t, i) => {
+          const c = CHIP_COLORS[i % CHIP_COLORS.length]
+          return (
+            <button
+              key={t.label}
+              className="template-chip"
+              style={{ "--chip-bg": c.bg, "--chip-border": c.border, "--chip-text": c.text }}
+              onClick={() => onSelect(t.prompt)}
+              title={t.prompt}
+            >
+              <span className="template-icon">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

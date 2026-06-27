@@ -92,21 +92,44 @@ THEMES = [
 ]
 
 
+def _tint(hex_color: str, factor: float) -> str:
+    """Lighten (factor>1) or darken (factor<1) a hex color."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    if factor > 1:
+        r = int(r + (255 - r) * (factor - 1))
+        g = int(g + (255 - g) * (factor - 1))
+        b = int(b + (255 - b) * (factor - 1))
+    else:
+        r, g, b = int(r * factor), int(g * factor), int(b * factor)
+    return f"{min(r,255):02X}{min(g,255):02X}{min(b,255):02X}"
+
+
 def pick_theme(style: dict) -> dict:
-    accent = style.get("accent_color", "#E94560").lstrip("#").upper()
-    bg = style.get("background_color", "#1A1A2E").lstrip("#").upper()
-    if accent and bg and accent != "0070C0":
-        dark = is_dark(f"#{bg}")
-        text = "EAEAEA" if dark else "1A1A2E"
-        text_muted = "A0A0B0" if dark else "555577"
-        return {
-            "bg": bg, "surface": bg,
-            "accent": accent, "accent2": accent,
-            "text": text, "text_muted": text_muted,
-            "font_title": style.get("primary_font", "Arial Black"),
-            "font_body": "Calibri",
-        }
-    return THEMES[0]
+    accent_raw = style.get("accent_color", "").lstrip("#").upper()
+    bg_raw     = style.get("background_color", "").lstrip("#").upper()
+
+    if not accent_raw or not bg_raw:
+        return THEMES[0]
+
+    dark = is_dark(f"#{bg_raw}")
+    # Surface: slightly lighter/darker than bg for contrast in title band
+    surface = _tint(bg_raw, 1.12) if dark else _tint(bg_raw, 0.92)
+    text        = "EAEAEA" if dark else "1A1A2E"
+    text_muted  = "A0A0B0" if dark else "666688"
+    # accent2: slightly darker shade of accent for secondary elements
+    accent2 = _tint(accent_raw, 0.75)
+
+    return {
+        "bg":         bg_raw,
+        "surface":    surface,
+        "accent":     accent_raw,
+        "accent2":    accent2,
+        "text":       text,
+        "text_muted": text_muted,
+        "font_title": style.get("primary_font", "Calibri"),
+        "font_body":  "Calibri",
+    }
 
 
 IMAGE_VARIANTS_HEAVY = ["image_right", "image_left", "image_bottom"]

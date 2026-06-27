@@ -667,28 +667,27 @@ body::before {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 13px;
+  padding: 7px 14px;
   border-radius: 20px;
-  border: 1px solid var(--border-2);
-  background: var(--surface-2);
-  color: var(--text-2);
+  border: 1px solid var(--chip-border, var(--border-2));
+  background: var(--chip-bg, var(--surface-2));
+  color: var(--chip-text, var(--text-2));
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
   white-space: nowrap;
   font-family: var(--font-body);
+  letter-spacing: 0.01em;
 }
 
 .template-chip:hover {
-  border-color: var(--accent);
-  background: rgba(79,142,247,0.08);
-  color: var(--blue-light);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(79,142,247,0.15);
+  filter: brightness(1.18);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
 }
 
-.template-icon { font-size: 13px; }
+.template-icon { font-size: 14px; }
 
 /* ── Theme Picker ──────────────────────────────── */
 .theme-picker {
@@ -2318,12 +2317,22 @@ body::before {
    LANDING / AUTH — Split-screen professional page
 ═══════════════════════════════════════════════ */
 
-.landing {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.landing-page {
   min-height: 100vh;
+  display: flex;
+  align-items: stretch;
   position: relative;
   z-index: 1;
+  background: var(--bg);
+}
+
+.landing {
+  display: grid;
+  grid-template-columns: 55% 45%;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
 }
 
 /* ── Left hero panel ─────────────────────────── */
@@ -2643,10 +2652,12 @@ body::before {
 /* ── Responsive: stack on small screens ──────── */
 @media (max-width: 860px) {
   .landing { grid-template-columns: 1fr; }
-  .landing-left { padding: 40px 28px; border-right: none; border-bottom: 1px solid var(--border); }
-  .landing-headline h1 { font-size: 32px; }
-  .landing-right { padding: 40px 28px; }
+  .landing-left { padding: 36px 24px; border-right: none; border-bottom: 1px solid var(--border); }
+  .landing-headline h1 { font-size: 30px; }
+  .landing-right { padding: 36px 24px; }
   .auth-row-2 { grid-template-columns: 1fr; }
+  .landing-stats { display: none; }
+  .landing-features { gap: 10px; }
 }
 
 /* ── Header user info + logout ───────────────── */
