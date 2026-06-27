@@ -7,7 +7,7 @@ import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 
-const STEPS = ["Configure", "Generate"]
+const STEPS = ["Account", "Configure", "Generate"]
 
 export default function App() {
   const [token,          setToken]          = useState(() => localStorage.getItem("pptgen_token") || null)
@@ -20,7 +20,7 @@ export default function App() {
   })
   const [step, setStep] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.get("job") ? 2 : 1
+    return params.get("job") ? 3 : 2
   })
   const historyRef = useRef()
 
@@ -43,6 +43,7 @@ export default function App() {
 
   const handleLogin = (newToken) => {
     setToken(newToken)
+    setStep(2)
   }
 
   const handleLogout = () => {
@@ -51,13 +52,13 @@ export default function App() {
     setUser(null)
   }
 
-  const handleGenerate = (id) => { setJobId(id); setStep(2) }
+  const handleGenerate = (id) => { setJobId(id); setStep(3) }
 
   const handleReset = () => {
     setSessionId(crypto.randomUUID())
     setUploadedFiles({ images: [], templates: [] })
     setJobId(null)
-    setStep(1)
+    setStep(2)
   }
 
   const handleHistoryRefresh = () => {
@@ -96,7 +97,7 @@ export default function App() {
           ))}
         </div>
 
-        {step === 1 && (
+        {step === 2 && (
           <>
             <PromptForm
               sessionId={sessionId}
@@ -109,7 +110,7 @@ export default function App() {
             <PresentationHistory ref={historyRef} />
           </>
         )}
-        {step === 2 && (
+        {step === 3 && (
           <JobTracker
             jobId={jobId}
             onReset={handleReset}
