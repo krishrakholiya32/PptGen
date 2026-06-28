@@ -1,196 +1,220 @@
-# PptGen - AI Presentation Generator
+<p align="center">
+  <h1 align="center">PptGen</h1>
+  <p align="center"><strong>AI Presentation Generator</strong></p>
+  <p align="center">
+    Describe your topic — AI researches, writes, designs and exports a complete PowerPoint in seconds.
+  </p>
+  <p align="center">
+    <a href="https://pptgen.zrik.tech">
+      <img src="https://img.shields.io/badge/Live%20Demo-pptgen.zrik.tech-brightgreen?style=for-the-badge" alt="Live Demo">
+    </a>
+  </p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI">
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
+    <img src="https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=flat" alt="Groq">
+    <img src="https://img.shields.io/badge/Heroku-deployed-430098?style=flat&logo=heroku&logoColor=white" alt="Heroku">
+    <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License">
+  </p>
+</p>
 
-A full-stack application that uses AI to generate PowerPoint presentations from text prompts.
+---
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/1-landing.jpg" alt="Landing & login" width="100%"></td>
+    <td><img src="docs/screenshots/2-configure.jpg" alt="Configure presentation" width="100%"></td>
+    <td><img src="docs/screenshots/3-editor.jpg" alt="Slide editor" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Login — full-screen auth</em></td>
+    <td align="center"><em>Presentation ready & download</em></td>
+    <td align="center"><em>Slide editor with AI rewrite</em></td>
+  </tr>
+</table>
+
+---
+
+## Why I Built This
+
+PptGen was built to eliminate the manual work of creating presentations. Instead of spending hours on slide design and research, you describe your topic and the AI plans the structure, researches current facts via live web search, selects relevant images, and renders a fully editable PowerPoint — end to end in under a minute. The project explores background job queuing, real-time SSE progress streaming, AI-driven slide planning, and PPTX generation with python-pptx.
+
+---
 
 ## Features
 
-- AI-powered content generation using Groq API
-- Customizable themes and colors
-- Image integration from multiple sources (Unsplash, Pexels, Pixabay)
-- Template-based style extraction
-- Web search integration for current facts
-- Real-time job tracking
-- Presentation history
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **AI Content Generation** | Groq LLaMA 3.3 70B plans, writes and structures every slide |
+| 2 | **Live Web Research** | DuckDuckGo search automatically pulls current facts into slides |
+| 3 | **8 Professional Themes** | Classic, Dark, Corporate, Creative, Nature, Midnight, Sunset, Rose |
+| 4 | **Custom Colors** | Override background, accent and text colour on any theme |
+| 5 | **Slide Editor** | Edit titles, bullets, speaker notes; reorder or AI-rewrite any slide post-generation |
+| 6 | **Image Integration** | Auto-fetches relevant images per slide; user-uploaded images supported |
+| 7 | **Instant PPTX Export** | Downloads a fully editable `.pptx` in seconds |
+| 8 | **Presentation History** | Per-user history with one-click re-download |
+| 9 | **Real-time Progress** | SSE streaming with HTTP polling fallback |
+| 10 | **Auth & Security** | JWT + Argon2 password hashing; all write endpoints require auth |
+
+---
 
 ## Tech Stack
 
-### Frontend
-- React 19
-- Vite
-- Modern CSS
+| Layer | Technology |
+|-------|------------|
+| **Backend** | FastAPI, Python 3.11+ |
+| **LLM** | Groq API — `llama-3.3-70b-versatile` (content) + `llama-3.2-11b-vision-preview` (images) |
+| **Presentation** | python-pptx |
+| **Database** | SQLite + SQLAlchemy |
+| **Authentication** | JWT (PyJWT) + Argon2 (pwdlib) |
+| **Web search** | DuckDuckGo via `duckduckgo-search` |
+| **Image fetching** | DuckDuckGo Images (auto-fetch per slide) |
+| **Frontend** | React 19 + Vite |
+| **Styling** | Pure CSS (design system — Syne + DM Sans fonts) |
+| **Deployment** | Heroku (eco dyno, single-process — FastAPI serves React build) |
 
-### Backend
-- FastAPI
-- Python 3.12
-- python-pptx for presentation generation
-- Groq API for AI content generation
+---
 
-## Prerequisites
+## Architecture
 
-- Docker and Docker Compose
-- Python 3.12+ (for local development)
-- Node.js 20+ (for local development)
-- Groq API Key ([Get one here](https://console.groq.com/))
+```
+Browser
+  │
+  ├─ GET /               → FastAPI serves frontend/dist/index.html
+  ├─ GET /assets/*       → Vite build assets (StaticFiles)
+  ├─ GET /outputs/*      → Generated PPTX + images (StaticFiles)
+  │
+  └─ POST /api/generate
+       │
+       ├─ Auth: JWT required
+       ├─ Rate limit: 5 generations/hour per IP
+       ├─ BackgroundTask: run_generation(job_id, req, username)
+       │     ├─ Style extraction (from uploaded template or default)
+       │     ├─ Web search (optional — DuckDuckGo)
+       │     ├─ AI slide planning (LLaMA 3.3 70B → JSON plan)
+       │     ├─ Image fetching (per slide, saved to session_dir)
+       │     ├─ PPTX rendering (python-pptx)
+       │     └─ History save (username-scoped, disk-persisted)
+       │
+       └─ GET /api/stream/{job_id}  → SSE progress (1s interval, 6min max)
+```
 
-## Quick Start with Docker
+**Slide editing flow:**
+- `POST /api/edit-slide` or `/api/reorder-slides` → spawns new `_rerender` background task
+- `POST /api/regenerate-slide` → LLM rewrites one slide → `_rerender`
+- Each re-render returns a new `job_id`; frontend polls/streams it and swaps the active job
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd PptGen
-   ```
+---
 
-2. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and add your API keys:
-   ```
-   GROQ_API_KEY=your_actual_groq_api_key_here
-   ```
+## Quick Start
 
-3. **Build and run with Docker Compose**
-   ```bash
-   docker-compose up --build
-   ```
+### Prerequisites
 
-4. **Access the application**
-   - Frontend: http://localhost
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
-   - Health Check: http://localhost:8000/health
+- Python 3.11+
+- Node.js 20+
+- [Groq API key](https://console.groq.com/keys) (free tier available)
 
-## Local Development
+### 1. Clone
 
-### Backend Setup
+```bash
+git clone https://github.com/krishrakholiya32/PptGen.git
+cd PptGen
+```
 
-1. **Navigate to backend directory**
-   ```bash
-   cd backend
-   ```
+### 2. Backend
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+Create `backend/.env`:
 
-4. **Configure environment**
-   ```bash
-   cp ../.env.example .env
-   # Edit .env with your API keys
-   ```
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here   # optional
+JWT_SECRET_KEY=change-me-to-a-random-secret
+ENVIRONMENT=development
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+```
 
-5. **Run the backend**
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-### Frontend Setup
+### 3. Frontend
 
-1. **Navigate to frontend directory**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Run the frontend**
-   ```bash
-   npm run dev
-   ```
-
-4. **Access the application**
-   - Frontend: http://localhost:5173
-
-## Building for Production
-
-### Frontend
 ```bash
 cd frontend
-npm run build
+npm install
+npm run dev
 ```
 
-The production build will be in the `dist/` directory.
+- App: <http://localhost:5173>
+- API docs: <http://localhost:8000/docs>
+- Health: <http://localhost:8000/health>
 
-### Backend
-The backend is production-ready with the following features:
-- Structured logging
-- Health check endpoint
-- Environment-based configuration
-- CORS configuration
-- Error handling for missing API keys
-
-## Docker Deployment
-
-### Build individual containers
-
-**Backend:**
-```bash
-docker build -t pptgen-backend ./backend
-```
-
-**Frontend:**
-```bash
-docker build -t pptgen-frontend ./frontend
-```
-
-### Run with Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### View logs
-```bash
-docker-compose logs -f
-```
-
-### Stop services
-```bash
-docker-compose down
-```
+---
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | Yes | Groq API key for AI content generation |
-| `GEMINI_API_KEY` | No | Google Gemini API key (optional) |
-| `UNSPLASH_ACCESS_KEY` | No | Unsplash API key for images |
-| `PEXELS_API_KEY` | No | Pexels API key for images |
-| `PIXABAY_API_KEY` | No | Pixabay API key for images |
-| `GROQ_TEXT_MODEL` | No | Groq text model (default: llama-3.3-70b-versatile) |
-| `GROQ_VISION_MODEL` | No | Groq vision model (default: llama-3.2-11b-vision-preview) |
-| `CORS_ORIGINS` | No | Allowed CORS origins (default: localhost) |
-| `ENVIRONMENT` | No | Environment (development/production) |
+| `GROQ_API_KEY` | Yes | Groq API key — LLaMA 3.3 70B for slide content |
+| `JWT_SECRET_KEY` | Yes | Random secret for JWT signing |
+| `GEMINI_API_KEY` | No | Google Gemini key (fallback LLM, optional) |
+| `GROQ_TEXT_MODEL` | No | Override text model (default: `llama-3.3-70b-versatile`) |
+| `GROQ_VISION_MODEL` | No | Override vision model (default: `llama-3.2-11b-vision-preview`) |
+| `CORS_ORIGINS` | No | Comma-separated allowed origins |
+| `ENVIRONMENT` | No | `development` or `production` |
+| `MAX_UPLOAD_SIZE_MB` | No | Max file upload size (default: 10) |
 
-## API Endpoints
+---
 
-### Health Check
-- `GET /health` - Health check endpoint
+## API Reference
+
+All endpoints marked `🔒` require `Authorization: Bearer <token>`.
+
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/register` | Register new user, returns JWT |
+| `POST` | `/api/auth/login` | Login with email + password, returns JWT |
+| `GET`  | `/api/auth/me` 🔒 | Current user info |
+| `GET`  | `/api/auth/check` | Check username/email availability |
 
 ### Generate
-- `POST /api/generate` - Generate a presentation
-- `GET /api/job/{job_id}` - Get job status
-- `GET /api/slide-plan/{job_id}` - Get slide plan
-- `POST /api/edit-slide` - Edit a slide
-- `POST /api/regenerate-slide` - Regenerate a slide
 
-### Upload
-- `POST /api/upload` - Upload files (images, templates)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/generate` 🔒 | Start generation job, returns `job_id` |
+| `GET`  | `/api/job/{job_id}` | Poll job status + download URL |
+| `GET`  | `/api/stream/{job_id}` | SSE stream — real-time progress |
+| `GET`  | `/api/slide-plan/{job_id}` | Get full slide plan JSON |
+| `POST` | `/api/edit-slide` | Edit a slide's title/bullets/notes → re-render |
+| `POST` | `/api/regenerate-slide` | AI-rewrite one slide → re-render |
+| `POST` | `/api/reorder-slides` | Reorder slides → re-render |
 
-### Preview
-- `GET /api/history` - Get presentation history
+### Upload & History
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST`   | `/api/upload` | Upload images or .pptx template |
+| `POST`   | `/api/recommend-slides` | AI-recommended slide count for a prompt |
+| `GET`    | `/api/history` 🔒 | Per-user presentation history |
+| `DELETE` | `/api/history/{job_id}` 🔒 | Delete a history entry |
+
+### Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Service health + environment |
+
+---
 
 ## Project Structure
 
@@ -198,50 +222,104 @@ docker-compose down
 PptGen/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # API routes
-│   │   ├── core/         # Configuration
-│   │   └── services/     # Business logic
-│   ├── uploads/          # Temporary upload directory
-│   ├── outputs/          # Generated presentations
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   ├── api/
+│   │   │   ├── auth.py           # JWT auth — register, login, me, check
+│   │   │   ├── generate.py       # Job queue, SSE stream, slide edit/regen/reorder
+│   │   │   ├── preview.py        # History API, slide-count recommender, output cleanup
+│   │   │   └── upload.py         # File upload (images + .pptx templates)
+│   │   ├── core/
+│   │   │   └── config.py         # Pydantic settings — env vars
+│   │   ├── database/
+│   │   │   └── db.py             # SQLite + SQLAlchemy engine
+│   │   ├── models/
+│   │   │   └── user.py           # User ORM model
+│   │   ├── services/
+│   │   │   ├── content_planner.py  # LLM → structured slide plan JSON
+│   │   │   ├── image_fetcher.py    # DuckDuckGo image search per slide
+│   │   │   ├── llm_service.py      # Groq/Gemini LLM wrapper
+│   │   │   ├── renderer_pptx.py    # python-pptx slide renderer
+│   │   │   ├── style_extractor.py  # Extract theme from uploaded .pptx
+│   │   │   └── web_search.py       # DuckDuckGo web search context
+│   │   └── main.py               # FastAPI app, CORS, static mounts, catch-all
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── public/           # Static assets
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── nginx.conf
-│   └── Dockerfile
-├── .env.example
-├── .gitignore
+│   │   ├── components/
+│   │   │   ├── AuthPage.jsx        # Login + register with live validation
+│   │   │   ├── ColorCustomizer.jsx # Bg/accent/text colour pickers
+│   │   │   ├── JobTracker.jsx      # SSE + polling progress tracker, done state
+│   │   │   ├── PresentationHistory.jsx  # Per-user history with re-download
+│   │   │   ├── PromptForm.jsx      # Main config form (topic, slides, theme, upload)
+│   │   │   ├── SlidePreview.jsx    # Slide list + editor (edit/notes/AI rewrite/reorder)
+│   │   │   └── ThemePicker.jsx     # 8 theme cards in 4×2 grid
+│   │   ├── App.jsx                 # Root — auth gate, steps bar, token keepalive
+│   │   └── App.css                 # Full design system (dark SaaS, responsive)
+│   ├── .env.production             # VITE_API_URL=/api (relative, same-origin on Heroku)
+│   └── vite.config.js
+├── docs/
+│   └── screenshots/
+├── Procfile                        # web: uvicorn app.main:app (served from backend/)
+├── .python-version                 # 3.11 (Heroku buildpack)
 ├── docker-compose.yml
 └── README.md
 ```
 
-## Troubleshooting
+---
 
-### Backend fails to start
-- Ensure `.env` file exists with `GROQ_API_KEY` set
-- Check that port 8000 is not in use
-- Verify Python dependencies are installed
+## Deployment (Heroku)
 
-### Frontend cannot connect to backend
-- Ensure backend is running on port 8000
-- Check CORS configuration in `.env`
-- Verify proxy settings in `vite.config.js`
+The app runs as a **single Heroku dyno** — FastAPI serves both the API and the React build:
 
-### Docker issues
-- Ensure Docker and Docker Compose are installed
-- Check that ports 80 and 8000 are not in use
-- Run `docker-compose down` before rebuilding
+```
+Procfile:  web: sh -c 'cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'
+```
+
+FastAPI mounts `/assets` and `/outputs` as `StaticFiles` and serves `frontend/dist/index.html` via a catch-all route.
+
+### Deploy your own
+
+```bash
+heroku create your-app-name
+heroku config:set GROQ_API_KEY=...
+heroku config:set GEMINI_API_KEY=...
+heroku config:set JWT_SECRET_KEY=...
+heroku config:set CORS_ORIGINS=https://your-domain.com
+heroku config:set ENVIRONMENT=production
+
+# Build frontend first
+cd frontend && npm run build && cd ..
+git add -f frontend/dist/
+git commit -m "build: production frontend"
+git push heroku main
+```
+
+Custom domain:
+```bash
+heroku domains:add pptgen.yourdomain.com
+heroku certs:auto:enable
+# Add CNAME in your DNS provider pointing to the Heroku DNS target
+```
+
+> **Note:** Heroku eco dynos use ephemeral storage. Generated PPTX files and uploaded images are cleaned up after 1 hour. For permanent storage, wire up an S3 bucket.
+
+---
+
+## Roadmap
+
+- [ ] S3/Cloudflare R2 for persistent PPTX storage
+- [ ] PDF export alongside PPTX
+- [ ] More layout types (timeline, comparison, chart slides)
+- [ ] Google Slides export
+- [ ] Team / shared presentations
+
+---
 
 ## License
 
 [MIT](LICENSE)
 
-## Contributing
+---
 
-Contributions are welcome! Please open an issue or submit a pull request.
+<p align="center">
+  Designed and implemented from scratch with FastAPI · React · Groq LLaMA · Deployed on Heroku
+</p>
