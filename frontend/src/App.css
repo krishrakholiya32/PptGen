@@ -2342,7 +2342,7 @@ body::before {
     radial-gradient(ellipse 100% 80% at 10% 20%, rgba(79,142,247,0.18) 0%, transparent 55%),
     radial-gradient(ellipse 80% 60% at 90% 80%, rgba(124,58,237,0.14) 0%, transparent 55%),
     var(--bg-2);
-  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .landing-left::before {
@@ -2502,7 +2502,6 @@ body::before {
   padding: 60px 48px;
   background: var(--bg);
   overflow: hidden;
-  order: -1; /* auth form moves to left column */
 }
 
 .landing-form-wrap {
@@ -2650,8 +2649,8 @@ body::before {
 @media (max-width: 860px) {
   .landing { grid-template-columns: 1fr; }
   /* On mobile: auth form on top, features below */
-  .landing-right { padding: 36px 24px; order: -1; border-left: none; border-bottom: 1px solid var(--border); }
-  .landing-left { padding: 36px 24px; border-left: none; }
+  .landing-left { padding: 36px 24px; border-left: none; border-bottom: 1px solid var(--border); }
+  .landing-right { padding: 36px 24px; border-left: none; }
   .landing-headline h1 { font-size: 30px; }
   .auth-row-2 { grid-template-columns: 1fr; }
   .landing-stats { display: none; }
