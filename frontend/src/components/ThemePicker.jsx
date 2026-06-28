@@ -56,12 +56,12 @@ export const THEMES = [
     preview: ["#1A0A0F", "#F4A261", "#FAF0E6"],
   },
   {
-    id: "ocean",
-    name: "Ocean",
-    bg: "#0A1628",
-    accent: "#00D4FF",
-    text: "#E8F4FD",
-    preview: ["#0A1628", "#00D4FF", "#E8F4FD"],
+    id: "rose",
+    name: "Rose",
+    bg: "#FFF0F6",
+    accent: "#E91E8C",
+    text: "#1A0010",
+    preview: ["#FFF0F6", "#E91E8C", "#1A0010"],
   },
 ]
 
