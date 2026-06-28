@@ -281,12 +281,8 @@ async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
         except Exception as e:
             print(f"[Generate] Image copy failed: {e}")
 
-        # Delete session uploads (done with them)
-        try:
-            if os.path.exists(session_dir):
-                shutil.rmtree(session_dir)
-        except Exception as e:
-            print(f"[Generate] Cleanup failed: {e}")
+        # Session uploads kept for 1h so re-renders can use user images.
+        # _cleanup_old_sessions() handles deletion on the next generation.
 
     except HTTPException:
         raise
