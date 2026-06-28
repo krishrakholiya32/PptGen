@@ -2716,6 +2716,7 @@ body::before {
 @media (max-width: 480px) {
   .theme-picker { grid-template-columns: repeat(2, 1fr); }
   .landing-right { padding: 28px 18px; }
+  .landing-form-header { text-align: center; }
 }
 
 /* ── Desktop: widen content to reduce dark side margins ── */
