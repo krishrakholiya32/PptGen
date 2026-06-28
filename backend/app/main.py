@@ -57,6 +57,14 @@ _FRONTEND = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dis
 if os.path.exists(_FRONTEND):
     app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND, "assets")), name="frontend-assets")
 
+    @app.get("/favicon.svg", include_in_schema=False)
+    async def favicon():
+        return FileResponse(os.path.join(_FRONTEND, "favicon.svg"), media_type="image/svg+xml")
+
+    @app.get("/icons.svg", include_in_schema=False)
+    async def icons():
+        return FileResponse(os.path.join(_FRONTEND, "icons.svg"), media_type="image/svg+xml")
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
         index = os.path.join(_FRONTEND, "index.html")
