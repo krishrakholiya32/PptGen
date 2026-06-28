@@ -2671,3 +2671,15 @@ body::before {
   cursor: pointer; transition: var(--transition);
 }
 .btn-logout:hover { border-color: #f87171; color: #f87171; background: rgba(248,113,113,0.06); }
+
+/* ── Mobile fixes ─────────────────────────────── */
+@media (max-width: 860px) {
+  /* Prevent iOS Safari auto-zoom on focused inputs (triggers when font-size < 16px) */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Fix landing page clipped by mobile browser address bar */
+  .landing-page { height: 100svh; min-height: -webkit-fill-available; overflow-y: auto; }
+  .landing { height: auto; min-height: 100svh; }
+}
