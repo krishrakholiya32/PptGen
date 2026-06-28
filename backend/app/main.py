@@ -44,10 +44,21 @@ app.mount("/outputs", StaticFiles(directory=settings.OUTPUT_DIR), name="outputs"
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for monitoring and load balancers."""
     return {
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "service": "PptGen API"
     }
+
+
+# Serve React frontend (must be last — catch-all)
+from fastapi.responses import FileResponse
+_FRONTEND = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.exists(_FRONTEND):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND, "assets")), name="frontend-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        index = os.path.join(_FRONTEND, "index.html")
+        return FileResponse(index)
 
