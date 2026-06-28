@@ -102,6 +102,7 @@ export default function App() {
               setUploadedFiles={setUploadedFiles}
               onGenerate={handleGenerate}
               onBack={handleReset}
+              token={token}
             />
             <PresentationHistory ref={historyRef} />
           </>

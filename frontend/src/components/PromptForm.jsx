@@ -27,7 +27,7 @@ const TONES = [
   { value: "sales",     label: "Sales" },
 ]
 
-export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploadedFiles, onGenerate, onBack }) {
+export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploadedFiles, onGenerate, onBack, token }) {
   const [prompt, setPrompt]             = useState("")
   const [slideCount, setSlideCount]     = useState(10)
   const [templateFile, setTemplateFile] = useState("")
@@ -121,7 +121,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
 
       const res = await fetch(`${API}/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           prompt: finalPrompt,
           slide_count: slideCount,
