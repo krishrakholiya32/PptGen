@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+pydantic-settings
+python-pptx
+jinja2
+lxml
+Pillow
+duckduckgo-search
+sqlalchemy
+pyjwt
+pwdlib[argon2]
+email-validator
