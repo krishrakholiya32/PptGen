@@ -1115,10 +1115,11 @@ body::before {
 
 /* ── Responsive ────────────────────────────────── */
 @media (max-width: 640px) {
-  .app-header     { padding: 0 20px; }
+  .app-header     { padding: 0 16px; }
   .logo-sub       { display: none; }
-  .app-main       { padding: 28px 16px 60px; }
-  .card           { padding: 24px 20px; }
+  .header-username { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-main       { padding: 24px 14px 56px; }
+  .card           { padding: 20px 16px; }
   .form-row       { grid-template-columns: 1fr; }
   .steps-bar      { gap: 0; }
   .step span      { display: none; }
@@ -2649,9 +2650,9 @@ body::before {
 /* ── Responsive: stack on small screens ──────── */
 @media (max-width: 860px) {
   .landing { grid-template-columns: 1fr; }
-  /* On mobile: auth form on top, features below */
-  .landing-left { padding: 36px 24px; border-left: none; border-bottom: 1px solid var(--border); }
-  .landing-right { padding: 36px 24px; border-left: none; }
+  /* Auth form on top, features below */
+  .landing-right { order: -1; padding: 36px 24px; border-left: none; border-bottom: 1px solid var(--border); }
+  .landing-left  { order: 0;  padding: 36px 24px; border-left: none; border-right: none; border-bottom: none; }
   .landing-headline h1 { font-size: 30px; }
   .auth-row-2 { grid-template-columns: 1fr; }
   .landing-stats { display: none; }
@@ -2679,8 +2680,7 @@ body::before {
     font-size: 16px !important;
   }
 
-  /* Fix landing page stacking — panels were overlapping because flex align-items:stretch
-     forced .landing to fill 100vh even after height:auto, hiding the stacked right panel */
+  /* Fix landing page stacking */
   .landing-page {
     height: auto;
     min-height: 100svh;
@@ -2696,6 +2696,19 @@ body::before {
   .landing-right {
     overflow: visible;
   }
+}
+
+/* ── Small phone (≤480px) tweaks ─────────────── */
+@media (max-width: 480px) {
+  /* Theme picker: 4 cols → 2 cols so swatches and names have room */
+  .theme-picker { grid-template-columns: repeat(2, 1fr); }
+
+  /* Tighter landing panel padding on narrow screens */
+  .landing-right { padding: 28px 18px; }
+  .landing-left  { padding: 28px 18px; }
+
+  /* Slightly smaller headline */
+  .landing-headline h1 { font-size: 26px; }
 }
 
 /* ── Desktop: widen content to reduce dark side margins ── */
