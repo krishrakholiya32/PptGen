@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { SlidePreview } from "./SlidePreview"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
-const BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:8000"
+const BASE = import.meta.env.VITE_API_URL != null ? import.meta.env.VITE_API_URL.replace("/api", "") : "http://localhost:8000"
 
 const STEPS = [
   { at: 5,   label: "Job queued" },

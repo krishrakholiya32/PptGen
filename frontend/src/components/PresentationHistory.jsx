@@ -1,7 +1,7 @@
 import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
-const BASE = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:8000"
+const BASE = import.meta.env.VITE_API_URL != null ? import.meta.env.VITE_API_URL.replace("/api", "") : "http://localhost:8000"
 
 function timeAgo(iso) {
   const diff = Date.now() - new Date(iso).getTime()
