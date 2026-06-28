@@ -1124,6 +1124,12 @@ body::before {
   .steps-bar      { gap: 0; }
   .step span      { display: none; }
   .step.active span { display: block; font-size: 12px; }
+  /* Done card: stack vertically, full-width buttons */
+  .done-hero { flex-direction: column; text-align: center; padding: 8px 0; gap: 14px; }
+  .done-hero-text { min-width: unset; }
+  .done-actions-row { flex-direction: column; width: 100%; }
+  .btn-download { width: 100%; justify-content: center; }
+  .done-actions-row .btn-secondary { width: 100%; text-align: center; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -2300,7 +2306,19 @@ body::before {
 
 @media (max-width: 700px) {
   .sed-layout { grid-template-columns: 1fr; min-height: unset; }
-  .sed-sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 200px; }
+  .sed-sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
+  .sed-slide-item { padding: 7px 8px; }
+  .sed-header { padding: 10px 14px; gap: 6px; }
+  .sed-slide-num { font-size: 12px; }
+  .sed-layout-badge { font-size: 10px; padding: 2px 6px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sed-move-btn { padding: 4px 10px; font-size: 11px; }
+  .sed-tabs { padding: 0 8px; }
+  .sed-tab { flex: 1; padding: 10px 4px; font-size: 12px; text-align: center; }
+  .sed-fields { padding: 14px; gap: 14px; }
+  .sed-footer { flex-direction: column; align-items: stretch; gap: 8px; }
+  .sed-unsaved { margin-right: 0; text-align: center; }
+  .sed-save-btn { width: 100%; }
+  .sed-regen-btn { width: 100%; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -2650,13 +2668,9 @@ body::before {
 /* ── Responsive: stack on small screens ──────── */
 @media (max-width: 860px) {
   .landing { grid-template-columns: 1fr; }
-  /* Auth form on top, features below */
-  .landing-right { order: -1; padding: 36px 24px; border-left: none; border-bottom: 1px solid var(--border); }
-  .landing-left  { order: 0;  padding: 36px 24px; border-left: none; border-right: none; border-bottom: none; }
-  .landing-headline h1 { font-size: 30px; }
+  .landing-right { order: -1; padding: 36px 24px; border-left: none; border-bottom: none; min-height: 100svh; }
+  .landing-left  { display: none; }
   .auth-row-2 { grid-template-columns: 1fr; }
-  .landing-stats { display: none; }
-  .landing-features { gap: 10px; }
 }
 
 /* ── Header user info + logout ───────────────── */
@@ -2700,15 +2714,8 @@ body::before {
 
 /* ── Small phone (≤480px) tweaks ─────────────── */
 @media (max-width: 480px) {
-  /* Theme picker: 4 cols → 2 cols so swatches and names have room */
   .theme-picker { grid-template-columns: repeat(2, 1fr); }
-
-  /* Tighter landing panel padding on narrow screens */
   .landing-right { padding: 28px 18px; }
-  .landing-left  { padding: 28px 18px; }
-
-  /* Slightly smaller headline */
-  .landing-headline h1 { font-size: 26px; }
 }
 
 /* ── Desktop: widen content to reduce dark side margins ── */
