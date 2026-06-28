@@ -55,6 +55,14 @@ export const THEMES = [
     text: "#FAF0E6",
     preview: ["#1A0A0F", "#F4A261", "#FAF0E6"],
   },
+  {
+    id: "ocean",
+    name: "Ocean",
+    bg: "#0A1628",
+    accent: "#00D4FF",
+    text: "#E8F4FD",
+    preview: ["#0A1628", "#00D4FF", "#E8F4FD"],
+  },
 ]
 
 export function ThemePicker({ selectedId, onSelect }) {
