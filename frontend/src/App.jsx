@@ -80,10 +80,6 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {user && <span className="header-username">👤 {user.username}</span>}
           <button className="btn-logout" onClick={handleLogout}>Logout</button>
-          <div className="header-badge">
-            <div className="header-badge-dot" />
-            AI Ready
-          </div>
         </div>
       </header>
 

@@ -184,7 +184,7 @@ export function AuthPage({ onLogin }) {
             <div className="auth-form">
               <div className="auth-field">
                 <label>Username</label>
-                <input type="text" placeholder="e.g. krishr" value={regUser}
+                <input type="text" placeholder="e.g. zrik" value={regUser}
                   onChange={e => { setRegUser(e.target.value); checkUsername(e.target.value) }}
                   autoComplete="username" autoFocus />
                 {hintUser.text && <span className={`auth-hint ${hintUser.ok ? "ok" : "err"}`}>{hintUser.text}</span>}
