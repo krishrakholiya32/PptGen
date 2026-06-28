@@ -2679,7 +2679,27 @@ body::before {
     font-size: 16px !important;
   }
 
-  /* Fix landing page clipped by mobile browser address bar */
-  .landing-page { height: 100svh; min-height: -webkit-fill-available; overflow-y: auto; }
-  .landing { height: auto; min-height: 100svh; }
+  /* Fix landing page stacking — panels were overlapping because flex align-items:stretch
+     forced .landing to fill 100vh even after height:auto, hiding the stacked right panel */
+  .landing-page {
+    height: auto;
+    min-height: 100svh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-items: flex-start;
+  }
+  .landing {
+    height: auto;
+    min-height: unset;
+    width: 100%;
+  }
+  .landing-right {
+    overflow: visible;
+  }
+}
+
+/* ── Desktop: widen content to reduce dark side margins ── */
+@media (min-width: 1024px) {
+  .card { max-width: 860px; }
+  .app-main { padding: 48px 40px 80px; }
 }
