@@ -23,14 +23,20 @@
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/1-landing.jpg" alt="Landing & login" width="100%"></td>
-    <td><img src="docs/screenshots/2-configure.jpg" alt="Configure presentation" width="100%"></td>
-    <td><img src="docs/screenshots/3-editor.jpg" alt="Slide editor" width="100%"></td>
+    <td><img src="docs/screenshots/1-landing-login.png" alt="Landing & login" width="100%"></td>
+    <td><img src="docs/screenshots/4-configure-filled.png" alt="Configure presentation" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><em>Login — full-screen auth</em></td>
-    <td align="center"><em>Presentation ready & download</em></td>
-    <td align="center"><em>Slide editor with AI rewrite</em></td>
+    <td align="center"><em>Landing — auth form with feature highlights</em></td>
+    <td align="center"><em>Configure — prompt, templates, themes</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/6-generating.png" alt="Generating progress" width="100%"></td>
+    <td><img src="docs/screenshots/8-editor.png" alt="Slide editor" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Real-time generation progress</em></td>
+    <td align="center"><em>Presentation ready + slide editor</em></td>
   </tr>
 </table>
 
