@@ -19,10 +19,10 @@ app = FastAPI(title="PptGen API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=settings.ALLOW_CREDENTIALS,
-    allow_methods=settings.ALLOW_METHODS,
-    allow_headers=settings.ALLOW_HEADERS,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 os.makedirs(settings.OUTPUT_DIR, exist_ok=True)

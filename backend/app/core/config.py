@@ -34,34 +34,26 @@ class Settings(BaseSettings):
     PEXELS_API_KEY: str = ""
     PIXABAY_API_KEY: str = ""
 
-    # CORS — set via env as a JSON array or comma-separated string
-    # e.g. CORS_ORIGINS='["https://myapp.netlify.app","http://localhost:5173"]'
-    # or   CORS_ORIGINS="https://myapp.netlify.app,http://localhost:5173"
-    CORS_ORIGINS: List[str] = [
-        "https://kpptgen.netlify.app",
-        "https://pptgen.zrik.tech",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:80",
-        "http://localhost",
-    ]
+    # CORS — plain string, comma-separated or JSON array
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost"
     ALLOW_CREDENTIALS: bool = True
-    ALLOW_METHODS: List[str] = ["*"]
-    ALLOW_HEADERS: List[str] = ["*"]
+    ALLOW_METHODS: str = "*"
+    ALLOW_HEADERS: str = "*"
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        v = self.CORS_ORIGINS.strip()
+        if v.startswith("["):
+            try:
+                return json.loads(v)
+            except Exception:
+                pass
+        return [o.strip() for o in v.split(",") if o.strip()]
 
     JWT_SECRET_KEY: str = "pptgen-dev-secret-change-in-prod"
     DATABASE_URL: str = ""
     ENVIRONMENT: str = "development"
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors(cls, v):
-        if isinstance(v, str):
-            v = v.strip()
-            if v.startswith("["):
-                return json.loads(v)
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
 
     class Config:
         env_file = ".env"
