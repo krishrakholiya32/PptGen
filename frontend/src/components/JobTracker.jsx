@@ -17,9 +17,7 @@ const STEPS = [
 export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
   const [job, setJob]                 = useState({ status: "pending", progress: 0, message: "Starting…" })
   const [activeJobId, setActiveJobId] = useState(jobId)
-  const [showPreview, setShowPreview] = useState(false)
   const [liveSlides, setLiveSlides]   = useState(null)
-  const [copied, setCopied]           = useState(false)
   const esRef   = useRef(null)
   const pollRef = useRef(null)
   const planRef = useRef(null)
@@ -116,15 +114,6 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
     setLiveSlides(null)
   }
 
-  const handleShare = () => {
-    const url = new URL(window.location.href)
-    url.searchParams.set("job", activeJobId)
-    navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
   const isDone  = job.status === "done"
   const isError = job.status === "error"
 
@@ -189,7 +178,7 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
 
       {/* ── Slide editor — always visible when done ── */}
       {isDone && (
-        <div className="card preview-card print-target">
+        <div className="card preview-card">
           <div className="preview-card-header">
             <h3>Edit Slides</h3>
             <p>Click any slide on the left to edit its content, reorder, or regenerate with AI.</p>

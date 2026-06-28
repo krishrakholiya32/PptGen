@@ -1,10 +1,12 @@
 import os
 import json
 from datetime import datetime, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 from app.core.config import settings
+from app.api.auth import require_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -102,18 +104,19 @@ async def recommend_slides(req: RecommendRequest):
 # ── History API ───────────────────────────────────────────────────────────────
 
 @router.get("/history")
-async def get_history():
+async def get_history(current_user: User = Depends(require_user)):
     store = _get_history()
-    # Return only entries whose files still exist, mark expired ones
     result = []
     for e in store:
+        if e.get("username") != current_user.username:
+            continue
         path = os.path.join(settings.OUTPUT_DIR, e["filename"])
         result.append({**e, "expired": not os.path.exists(path)})
     return {"history": result}
 
 @router.delete("/history/{job_id}")
-async def delete_history(job_id: str):
+async def delete_history(job_id: str, current_user: User = Depends(require_user)):
     store = _get_history()
-    store[:] = [e for e in store if e["job_id"] != job_id]
+    store[:] = [e for e in store if not (e["job_id"] == job_id and e.get("username") == current_user.username)]
     _save_history(store)
     return {"ok": True}

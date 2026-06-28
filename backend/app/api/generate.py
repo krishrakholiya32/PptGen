@@ -7,11 +7,13 @@ import time
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from app.core.config import settings
+from app.api.auth import require_user
+from app.models.user import User
 from app.services.style_extractor import extractor
 from app.services.content_planner import planner
 from app.services.renderer_pptx import renderer_pptx
@@ -139,14 +141,14 @@ class JobStatus(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/generate", response_model=JobStatus)
-async def generate_document(req: GenerateRequest, background_tasks: BackgroundTasks, request: Request):
+async def generate_document(req: GenerateRequest, background_tasks: BackgroundTasks, request: Request, current_user: User = Depends(require_user)):
     client_ip = request.client.host if request.client else "unknown"
     _check_rate_limit(client_ip)
 
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "pending", "progress": 0, "message": "Queued"}
     _save_jobs(jobs)
-    background_tasks.add_task(run_generation, job_id, req)
+    background_tasks.add_task(run_generation, job_id, req, current_user.username)
     return JobStatus(job_id=job_id, status="pending", message="Job queued")
 
 
@@ -164,7 +166,7 @@ async def get_job_status(job_id: str):
     )
 
 
-async def run_generation(job_id: str, req: GenerateRequest):
+async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
     session_dir = os.path.join(settings.UPLOAD_DIR, req.session_id)
     try:
         jobs[job_id] = {"status": "running", "progress": 5, "message": "Starting..."}
@@ -221,7 +223,7 @@ async def run_generation(job_id: str, req: GenerateRequest):
             plan["slides"] = await fetch_images_for_slides(plan["slides"], session_dir)
 
         # Cache plan (memory + disk)
-        cached = {"plan": plan, "style": style, "session_dir": session_dir, "req": req.dict()}
+        cached = {"plan": plan, "style": style, "session_dir": session_dir, "req": req.model_dump()}
         slide_plans[job_id] = cached
         _save_plan(job_id, cached)
 
@@ -253,12 +255,13 @@ async def run_generation(job_id: str, req: GenerateRequest):
             from app.api.preview import history_store, _save_history
             entry = {
                 "job_id": job_id,
+                "username": username,
                 "prompt": req.prompt[:120],
                 "slide_count": req.slide_count,
                 "filename": output_filename,
                 "download_url": f"/outputs/{output_filename}",
                 "created_at": datetime.now().isoformat(),
-                "theme": req.theme_colors.dict() if req.theme_colors else None,
+                "theme": req.theme_colors.model_dump() if req.theme_colors else None,
             }
             history_store.insert(0, entry)
             if len(history_store) > 20:
