@@ -2468,9 +2468,10 @@ body::before {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  width: fit-content;
+  width: 100%;
 }
 .landing-stat {
+  flex: 1;
   padding: 10px 20px;
   text-align: center;
   border-right: 1px solid var(--border);
