@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +17,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PptGen API")
+os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create tables (async), then clean outputs older than 1 hour / prune history.
+    await init_db()
+    from app.api.preview import cleanup_old_outputs
+    cleanup_old_outputs(retention_hours=1)
+    yield
+
+
+app = FastAPI(title="PptGen API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,15 +39,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-init_db()
-
-# On startup: clean outputs older than 1 hour, prune expired history
-from app.api.preview import cleanup_old_outputs
-cleanup_old_outputs(retention_hours=1)
 
 app.include_router(auth_module.router)
 app.include_router(generate.router, prefix="/api")
@@ -69,4 +75,3 @@ if os.path.exists(_FRONTEND):
     async def serve_frontend(full_path: str):
         index = os.path.join(_FRONTEND, "index.html")
         return FileResponse(index)
-

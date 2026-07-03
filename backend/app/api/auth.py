@@ -10,7 +10,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, field_validator
 from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db import get_db
 from app.models.user import User
@@ -37,7 +38,7 @@ def _create_token(username: str) -> str:
     return jwt.encode({"sub": username, "exp": exp}, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> Optional[User]:
     if not token:
         return None
     try:
@@ -45,12 +46,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         username = payload.get("sub")
         if not username:
             return None
-        return db.query(User).filter(User.username == username).first()
+        return await db.scalar(select(User).where(User.username == username))
     except jwt.InvalidTokenError:
         return None
 
 
-async def require_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+async def require_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
     user = await get_current_user(token, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -101,19 +102,21 @@ class UserResponse(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == req.username).first():
+async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if await db.scalar(select(User).where(User.username == req.username)):
         raise HTTPException(400, "Username already taken")
-    if db.query(User).filter(User.email == req.email).first():
+    if await db.scalar(select(User).where(User.email == req.email)):
         raise HTTPException(400, "Email already registered")
     user = User(username=req.username, email=req.email, password_hash=_hash(req.password))
-    db.add(user); db.commit(); db.refresh(user)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
     return TokenResponse(access_token=_create_token(user.username))
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form.username).first()
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.email == form.username))
     if not user or not _verify(form.password, user.password_hash):
         raise HTTPException(401, "Incorrect email or password")
     return TokenResponse(access_token=_create_token(user.username))
@@ -125,14 +128,14 @@ async def me(user: User = Depends(require_user)):
 
 
 @router.get("/check")
-async def check(username: Optional[str] = Query(None), email: Optional[str] = Query(None), db: Session = Depends(get_db)):
+async def check(username: Optional[str] = Query(None), email: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
     result = {}
     if username is not None:
         v = username.strip()
         valid = bool(re.fullmatch(r"[A-Za-z0-9_]{3,30}", v))
-        result["username"] = {"valid_format": valid, "taken": bool(valid and db.query(User).filter(User.username == v).first())}
+        result["username"] = {"valid_format": valid, "taken": bool(valid and await db.scalar(select(User).where(User.username == v)))}
     if email is not None:
         v = email.strip()
         valid = bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", v))
-        result["email"] = {"valid_format": valid, "taken": bool(valid and db.query(User).filter(User.email == v).first())}
+        result["email"] = {"valid_format": valid, "taken": bool(valid and await db.scalar(select(User).where(User.email == v)))}
     return result

@@ -51,9 +51,20 @@ class Settings(BaseSettings):
         return [o.strip() for o in v.split(",") if o.strip()]
 
     JWT_SECRET_KEY: str = "pptgen-dev-secret-change-in-prod"
-    DATABASE_URL: str = ""
+    DATABASE_URL: str = "postgresql+asyncpg://pptgen:pptgen@localhost:5432/pptgen"
     ENVIRONMENT: str = "development"
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_db_url(cls, v: str) -> str:
+        # Normalize Heroku-style URLs to the async (asyncpg) driver form.
+        if not v:
+            return "postgresql+asyncpg://pptgen:pptgen@localhost:5432/pptgen"
+        if v.startswith("postgres://"):
+            return "postgresql+asyncpg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
     class Config:
         env_file = ".env"

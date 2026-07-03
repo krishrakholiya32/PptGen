@@ -1,0 +1,39 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pptgen
+      POSTGRES_PASSWORD: pptgen
+      POSTGRES_DB: pptgen
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pptgen"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pptgen:pptgen@db:5432/pptgen
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY must be set in .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in .env}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENVIRONMENT: production
+      CORS_ORIGINS: http://localhost:8000,http://localhost:3000
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
