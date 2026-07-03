@@ -1,26 +1,34 @@
-import { useState } from "react"
+import { useState, type KeyboardEvent } from "react"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 
-function debounce(fn, ms) {
-  let t
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms) }
+function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number) {
+  let t: ReturnType<typeof setTimeout>
+  return (...args: A) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms) }
 }
 
-const FEATURES = [
+interface Feature { icon: string; title: string; desc: string }
+interface Stat { value: string; label: string }
+interface Hint { text: string; ok: boolean }
+
+interface AuthPageProps {
+  onLogin: (token: string) => void
+}
+
+const FEATURES: Feature[] = [
   { icon: "✦", title: "AI-Powered Content", desc: "Groq LLaMA generates smart, structured slide content instantly" },
   { icon: "◈", title: "Live Web Research", desc: "Automatically pulls current facts and data into your slides" },
   { icon: "◉", title: "Beautiful Themes", desc: "8 professional themes with custom color controls" },
   { icon: "⬡", title: "Instant PPTX Export", desc: "Download fully editable PowerPoint files in seconds" },
 ]
 
-const STATS = [
+const STATS: Stat[] = [
   { value: "10s", label: "Avg generation time" },
   { value: "8", label: "Themes" },
   { value: "10", label: "Languages supported" },
 ]
 
-export function AuthPage({ onLogin }) {
+export function AuthPage({ onLogin }: AuthPageProps) {
   const [tab,     setTab]     = useState("login")
   const [error,   setError]   = useState("")
   const [loading, setLoading] = useState(false)
@@ -34,13 +42,13 @@ export function AuthPage({ onLogin }) {
   const [regPw,     setRegPw]     = useState("")
   const [regPwC,    setRegPwC]    = useState("")
 
-  const [hintUser,   setHintUser]   = useState({ text: "", ok: false })
-  const [hintEmail,  setHintEmail]  = useState({ text: "", ok: false })
-  const [hintEmailC, setHintEmailC] = useState({ text: "", ok: false })
-  const [hintPwC,    setHintPwC]    = useState({ text: "", ok: false })
+  const [hintUser,   setHintUser]   = useState<Hint>({ text: "", ok: false })
+  const [hintEmail,  setHintEmail]  = useState<Hint>({ text: "", ok: false })
+  const [hintEmailC, setHintEmailC] = useState<Hint>({ text: "", ok: false })
+  const [hintPwC,    setHintPwC]    = useState<Hint>({ text: "", ok: false })
 
-  const checkUsername = debounce(async (val) => {
-    val = val.trim()
+  const checkUsername = debounce(async (raw: string) => {
+    const val = raw.trim()
     if (!val) { setHintUser({ text: "", ok: false }); return }
     if (!/^[A-Za-z0-9_]{3,30}$/.test(val)) {
       setHintUser({ text: "3–30 chars, letters/numbers/underscores only", ok: false }); return
@@ -54,8 +62,8 @@ export function AuthPage({ onLogin }) {
     } catch { setHintUser({ text: "", ok: false }) }
   }, 500)
 
-  const checkEmail = debounce(async (val) => {
-    val = val.trim()
+  const checkEmail = debounce(async (raw: string) => {
+    const val = raw.trim()
     if (!val) { setHintEmail({ text: "", ok: false }); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
       setHintEmail({ text: "Enter a valid email", ok: false }); return
@@ -95,7 +103,7 @@ export function AuthPage({ onLogin }) {
       const data = await res.json()
       if (!res.ok) {
         const d = data.detail
-        const msg = Array.isArray(d) ? d.map(e => e.msg?.replace(/^Value error,\s*/i, "")).filter(Boolean).join(" ") : (typeof d === "string" ? d : "Registration failed.")
+        const msg = Array.isArray(d) ? d.map((e: { msg?: string }) => e.msg?.replace(/^Value error,\s*/i, "")).filter(Boolean).join(" ") : (typeof d === "string" ? d : "Registration failed.")
         setError(msg); return
       }
       localStorage.setItem("pptgen_token", data.access_token)
@@ -104,7 +112,7 @@ export function AuthPage({ onLogin }) {
     finally { setLoading(false) }
   }
 
-  const handleKey = (e) => {
+  const handleKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter") tab === "login" ? handleLogin() : handleRegister()
   }
 

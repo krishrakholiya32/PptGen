@@ -1,5 +1,12 @@
-export function ColorCustomizer({ colors, onChange }) {
-  const fields = [
+import type { Colors } from "../types"
+
+interface ColorCustomizerProps {
+  colors: Colors
+  onChange: (colors: Colors) => void
+}
+
+export function ColorCustomizer({ colors, onChange }: ColorCustomizerProps) {
+  const fields: { key: keyof Colors; label: string }[] = [
     { key: "bg", label: "Background" },
     { key: "accent", label: "Accent" },
     { key: "text", label: "Text" },

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
+import type { Slide, SlidePlan } from "../types"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
-const BASE = import.meta.env.VITE_API_URL != null ? import.meta.env.VITE_API_URL.replace("/api", "") : "http://localhost:8000"
 
-const LAYOUT_ICON = {
+const LAYOUT_ICON: Record<string, string> = {
   title_slide:   "🎯",
   title_content: "📋",
   image_right:   "🖼",
@@ -16,11 +16,27 @@ const LAYOUT_ICON = {
   accent_block:  "🟦",
 }
 
+interface SlideChanges {
+  title: string
+  bullets: string[]
+  speaker_notes: string
+}
+
 // ── Slide editor panel ────────────────────────────────────────────────────────
 
-function SlideEditor({ slide, index, total, jobId, onSave, onRegenerate, onMoveUp, onMoveDown }) {
+interface SlideEditorProps {
+  slide: Slide
+  index: number
+  total: number
+  onSave: (index: number, changes: SlideChanges) => void
+  onRegenerate: (index: number, instruction: string) => void
+  onMoveUp: (index: number) => void
+  onMoveDown: (index: number) => void
+}
+
+function SlideEditor({ slide, index, total, onSave, onRegenerate, onMoveUp, onMoveDown }: SlideEditorProps) {
   const [title,     setTitle]     = useState(slide.title || "")
-  const [bullets,   setBullets]   = useState(slide.bullets || [])
+  const [bullets,   setBullets]   = useState<string[]>(slide.bullets || [])
   const [notes,     setNotes]     = useState(slide.speaker_notes || "")
   const [regenInst, setRegenInst] = useState("")
   const [tab,       setTab]       = useState("edit")
@@ -36,9 +52,9 @@ function SlideEditor({ slide, index, total, jobId, onSave, onRegenerate, onMoveU
     setTab("edit")
   }, [slide])
 
-  const addBullet    = ()     => { setBullets(b => [...b, ""]); setDirty(true) }
-  const removeBullet = (i)    => { setBullets(b => b.filter((_, j) => j !== i)); setDirty(true) }
-  const updateBullet = (i, v) => { setBullets(b => b.map((x, j) => j === i ? v : x)); setDirty(true) }
+  const addBullet    = ()               => { setBullets(b => [...b, ""]); setDirty(true) }
+  const removeBullet = (i: number)      => { setBullets(b => b.filter((_, j) => j !== i)); setDirty(true) }
+  const updateBullet = (i: number, v: string) => { setBullets(b => b.map((x, j) => j === i ? v : x)); setDirty(true) }
 
   const handleSave = () => onSave(index, { title, bullets: bullets.filter(b => b.trim()), speaker_notes: notes })
 
@@ -47,7 +63,7 @@ function SlideEditor({ slide, index, total, jobId, onSave, onRegenerate, onMoveU
       <div className="sed-header">
         <div className="sed-slide-info">
           <span className="sed-slide-num">Slide {index + 1} of {total}</span>
-          <span className="sed-layout-badge">{LAYOUT_ICON[slide.layout_type] || "📋"} {(slide.layout_type || "").replace(/_/g, " ")}</span>
+          <span className="sed-layout-badge">{LAYOUT_ICON[slide.layout_type || ""] || "📋"} {(slide.layout_type || "").replace(/_/g, " ")}</span>
         </div>
         <div className="sed-move-btns">
           <button className="sed-move-btn" disabled={index === 0}            onClick={() => onMoveUp(index)}   title="Move slide up">↑ Move up</button>
@@ -148,12 +164,19 @@ function SlideEditor({ slide, index, total, jobId, onSave, onRegenerate, onMoveU
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnly = false }) {
-  const [plan,        setPlan]        = useState(prefetchedPlan)
+interface SlidePreviewProps {
+  jobId: string | null
+  onRerender: (jobId: string) => void
+  prefetchedPlan?: SlidePlan | null
+  readOnly?: boolean
+}
+
+export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnly = false }: SlidePreviewProps) {
+  const [plan,        setPlan]        = useState<SlidePlan | null>(prefetchedPlan)
   const [loading,     setLoading]     = useState(!prefetchedPlan)
   const [selected,    setSelected]    = useState(0)
   const [regenStatus, setRegenStatus] = useState("")
-  const [localSlides, setLocalSlides] = useState(null)
+  const [localSlides, setLocalSlides] = useState<Slide[] | null>(null)
 
   useEffect(() => {
     if (prefetchedPlan) { setPlan(prefetchedPlan); setLoading(false); return }
@@ -164,7 +187,7 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
       .finally(() => setLoading(false))
   }, [jobId, prefetchedPlan])
 
-  const pollJob = (newJobId) => {
+  const pollJob = (newJobId: string) => {
     setRegenStatus("Re-rendering…")
     const interval = setInterval(async () => {
       try {
@@ -183,27 +206,27 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
     setTimeout(() => clearInterval(interval), 180000)
   }
 
-  const handleEdit = async (slideIndex, changes) => {
+  const handleEdit = async (slideIndex: number, changes: SlideChanges) => {
     try {
       const data = await fetch(`${API}/edit-slide`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: jobId, slide_index: slideIndex, ...changes }),
       }).then(r => r.json())
       pollJob(data.job_id)
-    } catch (e) { setRegenStatus("Error: " + e.message) }
+    } catch (e) { setRegenStatus("Error: " + (e instanceof Error ? e.message : String(e))) }
   }
 
-  const handleRegenerate = async (slideIndex, instruction) => {
+  const handleRegenerate = async (slideIndex: number, instruction: string) => {
     try {
       const data = await fetch(`${API}/regenerate-slide`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: jobId, slide_index: slideIndex, instruction }),
       }).then(r => r.json())
       pollJob(data.job_id)
-    } catch (e) { setRegenStatus("Error: " + e.message) }
+    } catch (e) { setRegenStatus("Error: " + (e instanceof Error ? e.message : String(e))) }
   }
 
-  const handleMoveUp = async (index) => {
+  const handleMoveUp = async (index: number) => {
     if (index === 0) return
     const newOrder = slides.map((_, i) => i)
     ;[newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]]
@@ -217,10 +240,10 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
         body: JSON.stringify({ job_id: jobId, slide_order: newOrder }),
       }).then(r => r.json())
       pollJob(data.job_id)
-    } catch (e) { setRegenStatus("Error: " + e.message) }
+    } catch (e) { setRegenStatus("Error: " + (e instanceof Error ? e.message : String(e))) }
   }
 
-  const handleMoveDown = async (index) => {
+  const handleMoveDown = async (index: number) => {
     if (!slides || index === slides.length - 1) return
     const newOrder = slides.map((_, i) => i)
     ;[newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]
@@ -234,15 +257,13 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
         body: JSON.stringify({ job_id: jobId, slide_order: newOrder }),
       }).then(r => r.json())
       pollJob(data.job_id)
-    } catch (e) { setRegenStatus("Error: " + e.message) }
+    } catch (e) { setRegenStatus("Error: " + (e instanceof Error ? e.message : String(e))) }
   }
 
   if (loading) return <div className="preview-loading">Loading slides…</div>
   if (!plan)   return null
 
-  const slides     = localSlides || plan.slides || []
-  const slideStyle = plan.style || {}
-  const accent     = slideStyle.accent || "#4f8ef7"
+  const slides: Slide[] = localSlides || plan.slides || []
 
   return (
     <div className="sed-wrap">
@@ -272,7 +293,7 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
                 <div className="sed-slide-item-info">
                   <span className="sed-slide-item-title">{slide.title || "Untitled"}</span>
                   <span className="sed-slide-item-meta">
-                    {LAYOUT_ICON[slide.layout_type] || "📋"} {(slide.layout_type || "").replace(/_/g, " ")}
+                    {LAYOUT_ICON[slide.layout_type || ""] || "📋"} {(slide.layout_type || "").replace(/_/g, " ")}
                     {slide.bullets?.length ? ` · ${slide.bullets.length} bullets` : ""}
                   </span>
                 </div>
@@ -295,7 +316,6 @@ export function SlidePreview({ jobId, onRerender, prefetchedPlan = null, readOnl
               slide={slides[selected]}
               index={selected}
               total={slides.length}
-              jobId={jobId}
               onSave={handleEdit}
               onRegenerate={(idx, inst) => handleRegenerate(idx, inst)}
               onMoveUp={handleMoveUp}

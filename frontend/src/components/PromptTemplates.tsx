@@ -1,5 +1,13 @@
+import type { CSSProperties } from "react"
+
+interface ChipColor {
+  bg: string
+  border: string
+  text: string
+}
+
 // color assigned per chip for eye-pleasing variety
-const CHIP_COLORS = [
+const CHIP_COLORS: ChipColor[] = [
   { bg: "rgba(99,102,241,0.12)",  border: "rgba(99,102,241,0.35)",  text: "#a5b4fc" },  // indigo
   { bg: "rgba(16,185,129,0.10)",  border: "rgba(16,185,129,0.30)",  text: "#6ee7b7" },  // emerald
   { bg: "rgba(251,146,60,0.11)",  border: "rgba(251,146,60,0.32)",  text: "#fed7aa" },  // orange
@@ -10,7 +18,13 @@ const CHIP_COLORS = [
   { bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.28)",   text: "#fca5a5" },  // red
 ]
 
-export const PROMPT_TEMPLATES = [
+interface PromptTemplate {
+  icon: string
+  label: string
+  prompt: string
+}
+
+export const PROMPT_TEMPLATES: PromptTemplate[] = [
   {
     icon: "🚀",
     label: "Pitch Deck",
@@ -53,7 +67,11 @@ export const PROMPT_TEMPLATES = [
   },
 ]
 
-export function PromptTemplates({ onSelect }) {
+interface PromptTemplatesProps {
+  onSelect: (prompt: string) => void
+}
+
+export function PromptTemplates({ onSelect }: PromptTemplatesProps) {
   return (
     <div className="prompt-templates">
       <p className="templates-label">Start with a template:</p>
@@ -64,7 +82,7 @@ export function PromptTemplates({ onSelect }) {
             <button
               key={t.label}
               className="template-chip"
-              style={{ "--chip-bg": c.bg, "--chip-border": c.border, "--chip-text": c.text }}
+              style={{ "--chip-bg": c.bg, "--chip-border": c.border, "--chip-text": c.text } as CSSProperties}
               onClick={() => onSelect(t.prompt)}
               title={t.prompt}
             >

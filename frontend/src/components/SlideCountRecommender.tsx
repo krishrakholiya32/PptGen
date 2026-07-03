@@ -2,28 +2,37 @@ import { useState, useEffect, useRef } from "react"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 
-export function SlideCountRecommender({ prompt, onRecommend }) {
-  const [rec, setRec]         = useState(null)
+interface Recommendation {
+  recommended: number
+}
+
+interface SlideCountRecommenderProps {
+  prompt: string
+  onRecommend: (count: number) => void
+}
+
+export function SlideCountRecommender({ prompt, onRecommend }: SlideCountRecommenderProps) {
+  const [rec, setRec]         = useState<Recommendation | null>(null)
   const [visible, setVisible] = useState(false)
   const [loading, setLoading] = useState(false)
-  const timerRef = useRef(null)
-  const loadingRef = useRef(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!prompt || prompt.length < 20) {
       setVisible(false)
       setLoading(false)
-      clearTimeout(timerRef.current)
-      clearTimeout(loadingRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      if (loadingRef.current) clearTimeout(loadingRef.current)
       return
     }
 
     // Show loading dot after 400ms
-    clearTimeout(loadingRef.current)
+    if (loadingRef.current) clearTimeout(loadingRef.current)
     loadingRef.current = setTimeout(() => setLoading(true), 400)
 
     // Fetch recommendation after 900ms
-    clearTimeout(timerRef.current)
+    if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(async () => {
       try {
         const res  = await fetch(`${API}/recommend-slides`, {
@@ -41,8 +50,8 @@ export function SlideCountRecommender({ prompt, onRecommend }) {
     }, 900)
 
     return () => {
-      clearTimeout(timerRef.current)
-      clearTimeout(loadingRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      if (loadingRef.current) clearTimeout(loadingRef.current)
     }
   }, [prompt])
 

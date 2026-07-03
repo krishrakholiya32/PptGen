@@ -1,12 +1,16 @@
-import { useState, useRef } from "react"
+import { useState, useRef, type Dispatch, type SetStateAction } from "react"
 import { ThemePicker, THEMES } from "./ThemePicker"
 import { PromptTemplates } from "./PromptTemplates"
 import { ColorCustomizer } from "./ColorCustomizer"
 import { SlideCountRecommender } from "./SlideCountRecommender"
+import type { Colors, Theme, UploadedFiles } from "../types"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 
-const LANGUAGES = [
+interface Language { code: string; label: string }
+interface ToneOption { value: string; label: string }
+
+const LANGUAGES: Language[] = [
   { code: "en", label: "English 🇬🇧" },
   { code: "hi", label: "Hindi 🇮🇳" },
   { code: "es", label: "Spanish 🇪🇸" },
@@ -19,7 +23,7 @@ const LANGUAGES = [
   { code: "ru", label: "Russian 🇷🇺" },
 ]
 
-const TONES = [
+const TONES: ToneOption[] = [
   { value: "general",   label: "General" },
   { value: "executive", label: "Executive" },
   { value: "technical", label: "Technical" },
@@ -27,7 +31,17 @@ const TONES = [
   { value: "sales",     label: "Sales" },
 ]
 
-export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploadedFiles, onGenerate, onBack, token }) {
+interface PromptFormProps {
+  sessionId: string
+  setSessionId: Dispatch<SetStateAction<string>>
+  uploadedFiles: UploadedFiles
+  setUploadedFiles: Dispatch<SetStateAction<UploadedFiles>>
+  onGenerate: (jobId: string) => void
+  onBack: () => void
+  token: string
+}
+
+export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploadedFiles, onGenerate, onBack, token }: PromptFormProps) {
   const [prompt, setPrompt]             = useState("")
   const [slideCount, setSlideCount]     = useState(10)
   const [templateFile, setTemplateFile] = useState("")
@@ -40,26 +54,26 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState("")
 
-  const [selectedTheme, setSelectedTheme]         = useState(THEMES[0])
-  const [customColors, setCustomColors]           = useState({ bg: THEMES[0].bg, accent: THEMES[0].accent, text: THEMES[0].text })
+  const [selectedTheme, setSelectedTheme]         = useState<Theme>(THEMES[0])
+  const [customColors, setCustomColors]           = useState<Colors>({ bg: THEMES[0].bg, accent: THEMES[0].accent, text: THEMES[0].text })
   const [useCustomColors, setUseCustomColors]     = useState(false)
   const [showColorCustomizer, setShowColorCustomizer] = useState(false)
 
   // Upload panel state
   const [showUpload, setShowUpload]     = useState(false)
   const [dragging, setDragging]         = useState(false)
-  const [uploadFiles, setUploadFiles]   = useState([])
+  const [uploadFiles, setUploadFiles]   = useState<File[]>([])
   const [uploading, setUploading]       = useState(false)
   const [uploadError, setUploadError]   = useState("")
-  const inputRef = useRef()
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleThemeSelect = (theme) => {
+  const handleThemeSelect = (theme: Theme) => {
     setSelectedTheme(theme)
     setCustomColors({ bg: theme.bg, accent: theme.accent, text: theme.text })
     setUseCustomColors(false)
   }
 
-  const activeColors = useCustomColors
+  const activeColors: Colors = useCustomColors
     ? customColors
     : { bg: selectedTheme.bg, accent: selectedTheme.accent, text: selectedTheme.text }
 
@@ -67,7 +81,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
 
   const ACCEPTED = ".jpg,.jpeg,.png,.webp,.gif,.pptx"
 
-  const addFiles = (newFiles) => {
+  const addFiles = (newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles)
     setUploadFiles(prev => {
       const names = new Set(prev.map(f => f.name))
@@ -75,10 +89,10 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
     })
   }
 
-  const removeFile = (name) => setUploadFiles(prev => prev.filter(f => f.name !== name))
+  const removeFile = (name: string) => setUploadFiles(prev => prev.filter(f => f.name !== name))
 
-  const getFileType = (name) => {
-    const ext = name.split(".").pop().toLowerCase()
+  const getFileType = (name: string) => {
+    const ext = name.split(".").pop()?.toLowerCase() ?? ""
     if (["jpg","jpeg","png","webp","gif"].includes(ext)) return "image"
     if (ext === "pptx") return "template"
     return "unknown"
@@ -98,7 +112,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
       setSessionId(data.session_id)
       setUploadedFiles({ images: data.images || [], templates: data.templates || [] })
     } catch (e) {
-      setUploadError(e.message)
+      setUploadError(e instanceof Error ? e.message : String(e))
     } finally {
       setUploading(false)
     }
@@ -138,7 +152,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
       const data = await res.json()
       onGenerate(data.job_id)
     } catch (e) {
-      setError(e.message)
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
@@ -297,10 +311,10 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
-              onClick={() => inputRef.current.click()}
+              onClick={() => inputRef.current?.click()}
             >
               <input ref={inputRef} type="file" multiple accept={ACCEPTED}
-                style={{ display: "none" }} onChange={e => addFiles(e.target.files)} />
+                style={{ display: "none" }} onChange={e => e.target.files && addFiles(e.target.files)} />
               <span className="dropzone-icon-sm">⬆️</span>
               <span className="dropzone-text-sm">Drop files or click to browse</span>
               <span className="dropzone-hint-sm">Images: JPG PNG WebP · Templates: PPTX</span>

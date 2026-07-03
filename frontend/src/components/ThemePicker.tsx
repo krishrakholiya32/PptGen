@@ -1,4 +1,6 @@
-export const THEMES = [
+import type { Theme } from "../types"
+
+export const THEMES: Theme[] = [
   {
     id: "classic",
     name: "Classic",
@@ -65,7 +67,12 @@ export const THEMES = [
   },
 ]
 
-export function ThemePicker({ selectedId, onSelect }) {
+interface ThemePickerProps {
+  selectedId: string
+  onSelect: (theme: Theme) => void
+}
+
+export function ThemePicker({ selectedId, onSelect }: ThemePickerProps) {
   return (
     <div className="theme-picker">
       {THEMES.map(theme => (

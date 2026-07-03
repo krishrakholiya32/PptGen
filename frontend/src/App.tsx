@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react"
 import { PromptForm } from "./components/PromptForm"
 import { JobTracker } from "./components/JobTracker"
-import { PresentationHistory } from "./components/PresentationHistory"
+import { PresentationHistory, type PresentationHistoryHandle } from "./components/PresentationHistory"
 import { AuthPage } from "./components/AuthPage"
+import type { UploadedFiles, User } from "./types"
 import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
@@ -10,19 +11,25 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 const STEPS = ["Account", "Configure", "Generate"]
 
 export default function App() {
-  const [token,          setToken]          = useState(() => localStorage.getItem("pptgen_token") || null)
-  const [user,           setUser]           = useState(null)
-  const [sessionId,      setSessionId]      = useState(() => crypto.randomUUID())
-  const [uploadedFiles,  setUploadedFiles]  = useState({ images: [], templates: [] })
-  const [jobId,          setJobId]          = useState(() => {
+  const [token,          setToken]          = useState<string | null>(() => localStorage.getItem("pptgen_token") || null)
+  const [user,           setUser]           = useState<User | null>(null)
+  const [sessionId,      setSessionId]      = useState<string>(() => crypto.randomUUID())
+  const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFiles>({ images: [], templates: [] })
+  const [jobId,          setJobId]          = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get("job") || null
   })
-  const [step, setStep] = useState(() => {
+  const [step, setStep] = useState<number>(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get("job") ? 3 : 2
   })
-  const historyRef = useRef()
+  const historyRef = useRef<PresentationHistoryHandle | null>(null)
+
+  const handleLogout = () => {
+    localStorage.removeItem("pptgen_token")
+    setToken(null)
+    setUser(null)
+  }
 
   // Validate token and load user on mount
   useEffect(() => {
@@ -41,18 +48,12 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  const handleLogin = (newToken) => {
+  const handleLogin = (newToken: string) => {
     setToken(newToken)
     setStep(2)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("pptgen_token")
-    setToken(null)
-    setUser(null)
-  }
-
-  const handleGenerate = (id) => { setJobId(id); setStep(3) }
+  const handleGenerate = (id: string) => { setJobId(id); setStep(3) }
 
   const handleReset = () => {
     setSessionId(crypto.randomUUID())

@@ -1,9 +1,18 @@
-import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
+import { useState, useEffect, useImperativeHandle, forwardRef, type MouseEvent } from "react"
+import type { HistoryEntry } from "../types"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 const BASE = import.meta.env.VITE_API_URL != null ? import.meta.env.VITE_API_URL.replace("/api", "") : "http://localhost:8000"
 
-function timeAgo(iso) {
+export interface PresentationHistoryHandle {
+  refresh: () => void
+}
+
+interface PresentationHistoryProps {
+  onLoad?: (entry: HistoryEntry) => void
+}
+
+function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000)
   if (m < 1)  return "just now"
@@ -13,8 +22,8 @@ function timeAgo(iso) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-export const PresentationHistory = forwardRef(function PresentationHistory({ onLoad }, ref) {
-  const [history, setHistory] = useState([])
+export const PresentationHistory = forwardRef<PresentationHistoryHandle, PresentationHistoryProps>(function PresentationHistory(_props, ref) {
+  const [history, setHistory] = useState<HistoryEntry[]>([])
   const [open, setOpen]       = useState(false)
 
   const load = async () => {
@@ -31,10 +40,10 @@ export const PresentationHistory = forwardRef(function PresentationHistory({ onL
   // Expose refresh to parent
   useImperativeHandle(ref, () => ({ refresh: load }))
 
-  const handleDelete = async (job_id, e) => {
+  const handleDelete = async (job_id: string, e: MouseEvent) => {
     e.stopPropagation()
     await fetch(`${API}/history/${job_id}`, { method: "DELETE" })
-    setHistory(h => h.filter(e => e.job_id !== job_id))
+    setHistory(h => h.filter(entry => entry.job_id !== job_id))
   }
 
   if (history.length === 0) return null

@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from "react"
 import { SlidePreview } from "./SlidePreview"
+import type { Job, SlidePlan } from "../types"
 
 const API  = import.meta.env.VITE_API_URL || "http://localhost:8000/api"
 const BASE = import.meta.env.VITE_API_URL != null ? import.meta.env.VITE_API_URL.replace("/api", "") : "http://localhost:8000"
 
-const STEPS = [
+interface Step { at: number; label: string }
+
+const STEPS: Step[] = [
   { at: 5,   label: "Job queued" },
   { at: 10,  label: "Extracting style…" },
   { at: 28,  label: "Planning slide structure with AI…" },
@@ -14,13 +17,18 @@ const STEPS = [
   { at: 100, label: "Presentation ready!" },
 ]
 
-export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
-  const [job, setJob]                 = useState({ status: "pending", progress: 0, message: "Starting…" })
-  const [activeJobId, setActiveJobId] = useState(jobId)
-  const [liveSlides, setLiveSlides]   = useState(null)
-  const esRef   = useRef(null)
-  const pollRef = useRef(null)
-  const planRef = useRef(null)
+interface JobTrackerProps {
+  jobId: string | null
+  onReset: () => void
+  onHistoryRefresh: () => void
+}
+
+export function JobTracker({ jobId, onReset, onHistoryRefresh }: JobTrackerProps) {
+  const [job, setJob]                 = useState<Job>({ status: "pending", progress: 0, message: "Starting…" })
+  const [activeJobId, setActiveJobId] = useState<string | null>(jobId)
+  const [liveSlides, setLiveSlides]   = useState<SlidePlan | null>(null)
+  const esRef   = useRef<EventSource | null>(null)
+  const planRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => { setActiveJobId(jobId) }, [jobId])
 
@@ -36,11 +44,11 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
   useEffect(() => {
     if (!activeJobId) return
 
-    let sse = null
-    let fallback = null
+    let sse: EventSource | null = null
+    let fallback: ReturnType<typeof setInterval> | null = null
     let sseOk = false
 
-    const applyData = (data) => {
+    const applyData = (data: Job) => {
       setJob(data)
       if (data.status === "done") {
         if (onHistoryRefresh) onHistoryRefresh()
@@ -67,7 +75,7 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
       sse.onerror = () => {
         if (!sseOk) {
           // SSE failed, fall back to polling
-          try { sse.close() } catch {}
+          try { sse!.close() } catch {}
           fallback = setInterval(async () => {
             try {
               const data = await fetch(`${API}/job/${activeJobId}`).then(r => r.json())
@@ -105,10 +113,10 @@ export function JobTracker({ jobId, onReset, onHistoryRefresh }) {
 
     tryFetch()
     planRef.current = setInterval(tryFetch, 4000)
-    return () => clearInterval(planRef.current)
+    return () => { if (planRef.current) clearInterval(planRef.current) }
   }, [job.progress, activeJobId])
 
-  const handleRerender = (newJobId) => {
+  const handleRerender = (newJobId: string) => {
     setActiveJobId(newJobId)
     setJob({ status: "pending", progress: 0, message: "Re-rendering…" })
     setLiveSlides(null)
