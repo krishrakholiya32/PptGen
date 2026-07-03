@@ -13,7 +13,9 @@
     <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
     <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI">
     <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
-    <img src="https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=flat" alt="Groq">
+    <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript">
+    <img src="https://img.shields.io/badge/Gemini-3.1_Flash_Lite-4285F4?style=flat&logo=google&logoColor=white" alt="Gemini">
+    <img src="https://img.shields.io/badge/Groq-GPT--OSS_120B-F55036?style=flat" alt="Groq">
     <img src="https://img.shields.io/badge/Heroku-deployed-430098?style=flat&logo=heroku&logoColor=white" alt="Heroku">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License">
   </p>
@@ -52,7 +54,7 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **AI Content Generation** | Groq LLaMA 3.3 70B plans, writes and structures every slide |
+| 1 | **AI Content Generation** | Gemini (primary) plans, writes and structures every slide, with Groq GPT-OSS 120B as fallback |
 | 2 | **Live Web Research** | DuckDuckGo search automatically pulls current facts into slides |
 | 3 | **8 Professional Themes** | Classic, Dark, Corporate, Creative, Nature, Midnight, Sunset, Rose |
 | 4 | **Custom Colors** | Override background, accent and text colour on any theme |
@@ -70,13 +72,14 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 | Layer | Technology |
 |-------|------------|
 | **Backend** | FastAPI, Python 3.11+ |
-| **LLM** | Groq API — `llama-3.3-70b-versatile` (content) + `llama-3.2-11b-vision-preview` (images) |
+| **Primary LLM** | Google Gemini `gemini-3.1-flash-lite` — content + vision (template style analysis) |
+| **Fallback LLM** | Groq `openai/gpt-oss-120b` (content) + `qwen/qwen3.6-27b` (vision) |
 | **Presentation** | python-pptx |
-| **Database** | SQLite + SQLAlchemy |
+| **Database** | PostgreSQL (asyncpg) + async SQLAlchemy |
 | **Authentication** | JWT (PyJWT) + Argon2 (pwdlib) |
 | **Web search** | DuckDuckGo via `duckduckgo-search` |
-| **Image fetching** | DuckDuckGo Images (auto-fetch per slide) |
-| **Frontend** | React 19 + Vite |
+| **Image fetching** | Unsplash → Pexels → Pixabay (tried in order, auto-fetch per slide) |
+| **Frontend** | React 19 + Vite + TypeScript |
 | **Styling** | Pure CSS (design system — Syne + DM Sans fonts) |
 | **Deployment** | Heroku (eco dyno, single-process — FastAPI serves React build) |
 
@@ -98,7 +101,7 @@ Browser
        ├─ BackgroundTask: run_generation(job_id, req, username)
        │     ├─ Style extraction (from uploaded template or default)
        │     ├─ Web search (optional — DuckDuckGo)
-       │     ├─ AI slide planning (LLaMA 3.3 70B → JSON plan)
+       │     ├─ AI slide planning (Gemini primary, Groq fallback → JSON plan)
        │     ├─ Image fetching (per slide, saved to session_dir)
        │     ├─ PPTX rendering (python-pptx)
        │     └─ History save (username-scoped, disk-persisted)
@@ -119,7 +122,9 @@ Browser
 
 - Python 3.11+
 - Node.js 20+
-- [Groq API key](https://console.groq.com/keys) (free tier available)
+- PostgreSQL (or use Docker Compose)
+- [Gemini API key](https://aistudio.google.com/apikey) (free tier — primary provider)
+- [Groq API key](https://console.groq.com/keys) (free tier — fallback provider)
 
 ### 1. Clone
 
@@ -140,8 +145,13 @@ pip install -r requirements.txt
 Create `backend/.env`:
 
 ```env
-GROQ_API_KEY=your_groq_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here   # optional
+DATABASE_URL=postgresql+asyncpg://pptgen:pptgen@localhost:5432/pptgen
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEYS=second_key,third_key           # optional, comma-separated, unbounded
+GROQ_API_KEY=your_groq_api_key_here            # optional, fallback provider
+GROQ_API_KEYS=second_key,third_key             # optional, comma-separated, unbounded
+GROQ_TEXT_MODEL=openai/gpt-oss-120b
+GROQ_VISION_MODEL=qwen/qwen3.6-27b
 JWT_SECRET_KEY=change-me-to-a-random-secret
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
@@ -169,11 +179,14 @@ npm run dev
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | Yes | Groq API key — LLaMA 3.3 70B for slide content |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+asyncpg://...`) |
+| `GEMINI_API_KEY` | Yes | Primary Gemini API key — slide content + template vision |
+| `GEMINI_API_KEYS` | No | Comma-separated backup Gemini keys — unbounded |
+| `GROQ_API_KEY` | No | Groq key — fallback after every Gemini key is exhausted |
+| `GROQ_API_KEYS` | No | Comma-separated backup Groq keys — unbounded |
 | `JWT_SECRET_KEY` | Yes | Random secret for JWT signing |
-| `GEMINI_API_KEY` | No | Google Gemini key (fallback LLM, optional) |
-| `GROQ_TEXT_MODEL` | No | Override text model (default: `llama-3.3-70b-versatile`) |
-| `GROQ_VISION_MODEL` | No | Override vision model (default: `llama-3.2-11b-vision-preview`) |
+| `GROQ_TEXT_MODEL` | No | Override text model (default: `openai/gpt-oss-120b`) |
+| `GROQ_VISION_MODEL` | No | Override vision model (default: `qwen/qwen3.6-27b`) |
 | `CORS_ORIGINS` | No | Comma-separated allowed origins |
 | `ENVIRONMENT` | No | `development` or `production` |
 | `MAX_UPLOAD_SIZE_MB` | No | Max file upload size (default: 10) |
@@ -236,13 +249,13 @@ PptGen/
 │   │   ├── core/
 │   │   │   └── config.py         # Pydantic settings — env vars
 │   │   ├── database/
-│   │   │   └── db.py             # SQLite + SQLAlchemy engine
+│   │   │   └── db.py             # Async PostgreSQL + SQLAlchemy engine
 │   │   ├── models/
 │   │   │   └── user.py           # User ORM model
 │   │   ├── services/
 │   │   │   ├── content_planner.py  # LLM → structured slide plan JSON
-│   │   │   ├── image_fetcher.py    # DuckDuckGo image search per slide
-│   │   │   ├── llm_service.py      # Groq/Gemini LLM wrapper
+│   │   │   ├── image_fetcher.py    # Unsplash/Pexels/Pixabay image search per slide
+│   │   │   ├── llm_service.py      # Gemini primary / Groq fallback LLM wrapper
 │   │   │   ├── renderer_pptx.py    # python-pptx slide renderer
 │   │   │   ├── style_extractor.py  # Extract theme from uploaded .pptx
 │   │   │   └── web_search.py       # DuckDuckGo web search context
@@ -251,17 +264,19 @@ PptGen/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── AuthPage.jsx        # Login + register with live validation
-│   │   │   ├── ColorCustomizer.jsx # Bg/accent/text colour pickers
-│   │   │   ├── JobTracker.jsx      # SSE + polling progress tracker, done state
-│   │   │   ├── PresentationHistory.jsx  # Per-user history with re-download
-│   │   │   ├── PromptForm.jsx      # Main config form (topic, slides, theme, upload)
-│   │   │   ├── SlidePreview.jsx    # Slide list + editor (edit/notes/AI rewrite/reorder)
-│   │   │   └── ThemePicker.jsx     # 8 theme cards in 4×2 grid
-│   │   ├── App.jsx                 # Root — auth gate, steps bar, token keepalive
+│   │   │   ├── AuthPage.tsx        # Login + register with live validation
+│   │   │   ├── ColorCustomizer.tsx # Bg/accent/text colour pickers
+│   │   │   ├── JobTracker.tsx      # SSE + polling progress tracker, done state
+│   │   │   ├── PresentationHistory.tsx  # Per-user history with re-download
+│   │   │   ├── PromptForm.tsx      # Main config form (topic, slides, theme, upload)
+│   │   │   ├── SlidePreview.tsx    # Slide list + editor (edit/notes/AI rewrite/reorder)
+│   │   │   └── ThemePicker.tsx     # 8 theme cards in 4×2 grid
+│   │   ├── App.tsx                 # Root — auth gate, steps bar, token keepalive
+│   │   ├── types.ts                # Shared TypeScript interfaces
 │   │   └── App.css                 # Full design system (dark SaaS, responsive)
 │   ├── .env.production             # VITE_API_URL=/api (relative, same-origin on Heroku)
-│   └── vite.config.js
+│   ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
+│   └── vite.config.ts
 ├── docs/
 │   └── screenshots/
 ├── Procfile                        # web: uvicorn app.main:app (served from backend/)
@@ -286,8 +301,14 @@ FastAPI mounts `/assets` and `/outputs` as `StaticFiles` and serves `frontend/di
 
 ```bash
 heroku create your-app-name
-heroku config:set GROQ_API_KEY=...
+heroku addons:create heroku-postgresql:essential-0
+
 heroku config:set GEMINI_API_KEY=...
+heroku config:set GEMINI_API_KEYS=your_second_key,your_third_key
+heroku config:set GROQ_API_KEY=...
+heroku config:set GROQ_API_KEYS=your_second_groq_key
+heroku config:set GROQ_TEXT_MODEL=openai/gpt-oss-120b
+heroku config:set GROQ_VISION_MODEL=qwen/qwen3.6-27b
 heroku config:set JWT_SECRET_KEY=...
 heroku config:set CORS_ORIGINS=https://your-domain.com
 heroku config:set ENVIRONMENT=production
@@ -327,5 +348,5 @@ heroku certs:auto:enable
 ---
 
 <p align="center">
-  Designed and implemented from scratch with FastAPI · React · Groq LLaMA · Deployed on Heroku
+  Designed and implemented from scratch with FastAPI · React · Gemini · Groq · Deployed on Heroku
 </p>

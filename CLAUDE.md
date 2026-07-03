@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-PptGen is a full-stack AI presentation generator. Users describe a topic; the backend plans slides with LLaMA 3.3 70B, fetches images, renders a `.pptx` with python-pptx, and streams real-time progress via SSE. The frontend (React 19 + Vite) is built and committed to `frontend/dist/` — FastAPI serves it directly (no separate web server).
+PptGen is a full-stack AI presentation generator. Users describe a topic; the backend plans slides with Gemini (primary) / Groq GPT-OSS 120B (fallback), fetches images, renders a `.pptx` with python-pptx, and streams real-time progress via SSE. The frontend (React 19 + Vite + TypeScript) is built and committed to `frontend/dist/` — FastAPI serves it directly (no separate web server). The backend uses async SQLAlchemy against PostgreSQL (the `users` table only — presentation history is separately disk-persisted JSON, see below).
 
 Live at **https://pptgen.zrik.tech** (Heroku eco dyno, single process).
 
@@ -17,7 +17,7 @@ Live at **https://pptgen.zrik.tech** (Heroku eco dyno, single process).
 cd backend
 python -m venv venv && venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-cp .env.example .env   # set GROQ_API_KEY, JWT_SECRET_KEY
+cp .env.example .env   # set DATABASE_URL, GEMINI_API_KEY, GROQ_API_KEY, JWT_SECRET_KEY
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Frontend (dev)
@@ -48,8 +48,8 @@ git push heroku main
 2. BackgroundTask: `run_generation(job_id, req, username)` in `generate.py`
    - Style extraction from uploaded template (or default style)
    - Optional web search via DuckDuckGo (`web_search.py`)
-   - AI slide planning: LLaMA 3.3 70B returns structured JSON plan (`content_planner.py`)
-   - Image fetching: DuckDuckGo images per slide (`image_fetcher.py`)
+   - AI slide planning: Gemini (primary) / Groq GPT-OSS 120B (fallback) returns structured JSON plan (`content_planner.py`)
+   - Image fetching: Unsplash → Pexels → Pixabay per slide (`image_fetcher.py`)
    - PPTX rendering: python-pptx (`renderer_pptx.py`)
    - History entry saved to disk (`preview.py:history_store`)
 3. `GET /api/stream/{job_id}` — SSE, 1-second interval, max 6 minutes
@@ -91,10 +91,12 @@ const BASE = import.meta.env.VITE_API_URL != null
 | `backend/app/api/upload.py` | File upload — images + `.pptx` templates |
 | `backend/app/services/content_planner.py` | LLM prompt → structured slide JSON |
 | `backend/app/services/renderer_pptx.py` | Converts slide JSON + style → `.pptx` via python-pptx |
-| `backend/app/services/image_fetcher.py` | DuckDuckGo image search, downloads to `session_dir` |
+| `backend/app/services/image_fetcher.py` | Unsplash/Pexels/Pixabay image search (tried in order), downloads to `session_dir` |
+| `backend/app/database/db.py` | Async SQLAlchemy engine (asyncpg) — `users` table only |
 | `frontend/src/App.css` | Entire design system — CSS variables, all components, responsive breakpoints |
-| `frontend/src/components/JobTracker.jsx` | SSE + polling, progress bar, done/error states |
-| `frontend/src/components/SlidePreview.jsx` | Slide list sidebar + editor (edit/notes/AI rewrite/reorder) |
+| `frontend/src/components/JobTracker.tsx` | SSE + polling, progress bar, done/error states |
+| `frontend/src/components/SlidePreview.tsx` | Slide list sidebar + editor (edit/notes/AI rewrite/reorder) |
+| `frontend/src/components/PresentationHistory.tsx` | Per-user history list — **requires the `token` prop** from `App.tsx`; it was missing entirely until this was fixed, which silently 401'd every history/delete request |
 | `Procfile` | `web: sh -c 'cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'` |
 | `.python-version` | `3.11` — Heroku buildpack reads this |
 
@@ -128,6 +130,7 @@ git push heroku main # Heroku
 - **Heroku ephemeral storage**: PPTX files and uploaded images exist only for the dyno's lifetime (typically a few hours). `cleanup_old_outputs()` removes files older than 1 hour on each generation.
 - **Session dir lifetime**: User-uploaded images stay in `uploads/{session_id}/` for up to 1 hour so slide re-renders can embed them. `_cleanup_old_sessions()` removes them on the next generation call.
 - **History is disk-persisted JSON** (`outputs/history.json`), scoped per username. Entries are pruned when their PPTX file no longer exists.
+- **`PresentationHistory` needs the `token` prop.** It fetches `/api/history` and `DELETE /api/history/{id}`, both of which require `Authorization: Bearer <token>` — the component doesn't read `localStorage` itself, so if it's ever rendered without `token={token}` from `App.tsx`, every request 401s. This isn't visible as a UI error since the component renders nothing when `history` is empty, so it fails silently — always pass the prop.
 
 ---
 
@@ -135,11 +138,14 @@ git push heroku main # Heroku
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | Yes | Groq API key — LLaMA 3.3 70B |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+asyncpg://...`) |
+| `GEMINI_API_KEY` | Yes | Primary Gemini API key |
+| `GEMINI_API_KEYS` | No | Comma-separated backup Gemini keys — unbounded |
+| `GROQ_API_KEY` | No | Groq key — fallback provider |
+| `GROQ_API_KEYS` | No | Comma-separated backup Groq keys — unbounded |
 | `JWT_SECRET_KEY` | Yes | Random secret for JWT signing |
-| `GEMINI_API_KEY` | No | Google Gemini fallback LLM |
-| `GROQ_TEXT_MODEL` | No | Default: `llama-3.3-70b-versatile` |
-| `GROQ_VISION_MODEL` | No | Default: `llama-3.2-11b-vision-preview` |
+| `GROQ_TEXT_MODEL` | No | Default: `openai/gpt-oss-120b` |
+| `GROQ_VISION_MODEL` | No | Default: `qwen/qwen3.6-27b` |
 | `CORS_ORIGINS` | No | Comma-separated allowed origins |
 | `ENVIRONMENT` | No | `development` or `production` |
 | `MAX_UPLOAD_SIZE_MB` | No | Default: `10` |
