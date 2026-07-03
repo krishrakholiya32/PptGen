@@ -9,6 +9,7 @@ export interface PresentationHistoryHandle {
 }
 
 interface PresentationHistoryProps {
+  token: string
   onLoad?: (entry: HistoryEntry) => void
 }
 
@@ -22,19 +23,20 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-export const PresentationHistory = forwardRef<PresentationHistoryHandle, PresentationHistoryProps>(function PresentationHistory(_props, ref) {
+export const PresentationHistory = forwardRef<PresentationHistoryHandle, PresentationHistoryProps>(function PresentationHistory({ token }, ref) {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [open, setOpen]       = useState(false)
 
   const load = async () => {
+    if (!token) return
     try {
-      const res  = await fetch(`${API}/history`)
+      const res  = await fetch(`${API}/history`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       setHistory(data.history || [])
     } catch {}
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [token])
   useEffect(() => { if (open) load() }, [open])
 
   // Expose refresh to parent
@@ -42,7 +44,7 @@ export const PresentationHistory = forwardRef<PresentationHistoryHandle, Present
 
   const handleDelete = async (job_id: string, e: MouseEvent) => {
     e.stopPropagation()
-    await fetch(`${API}/history/${job_id}`, { method: "DELETE" })
+    await fetch(`${API}/history/${job_id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } })
     setHistory(h => h.filter(entry => entry.job_id !== job_id))
   }
 

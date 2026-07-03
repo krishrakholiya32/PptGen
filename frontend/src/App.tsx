@@ -105,7 +105,7 @@ export default function App() {
               onBack={handleReset}
               token={token}
             />
-            <PresentationHistory ref={historyRef} />
+            <PresentationHistory ref={historyRef} token={token} />
           </>
         )}
         {step === 3 && (

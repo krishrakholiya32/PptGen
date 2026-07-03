@@ -11,8 +11,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_API_KEYS: str = "" # comma-separated extra keys for rotation
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
-    GROQ_TEXT_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # llama-3.3-70b-versatile and llama-4-scout-17b-16e-instruct are both
+    # deprecating (Groq's June 17 2026 announcement) — gpt-oss-120b and
+    # qwen3.6-27b are Groq's recommended, currently-production replacements.
+    GROQ_TEXT_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_VISION_MODEL: str = "qwen/qwen3.6-27b"
 
     @property
     def all_groq_keys(self) -> List[str]:

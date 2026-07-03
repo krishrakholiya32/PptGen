@@ -6,9 +6,9 @@ from app.core.config import settings
 
 class LLMService:
     """
-    Primary: Gemini (gemini-3.1-flash-lite) — better quality, 500 RPD per key
-    Fallback: Groq (llama-3.3-70b-versatile) — better quality, 14,400 TPD per key
-    Vision:  Groq (llama-4-scout-17b) — free, analyzes images/slides
+    Primary: Gemini (gemini-3.1-flash-lite) — 500 RPD per key
+    Fallback: Groq (openai/gpt-oss-120b) — 14,400 TPD per key
+    Vision:  Gemini (natively multimodal) primary, Groq (qwen/qwen3.6-27b) fallback
     Multiple keys per provider rotate automatically on 429.
     """
 
@@ -45,12 +45,19 @@ class LLMService:
         return json.loads(raw)
 
     async def analyze_image(self, image_path: str, prompt: str) -> str:
-        """Use vision model to analyze a slide/page image for layout cloning."""
+        """Analyze a slide/page image for layout cloning. Gemini (natively
+        multimodal) is tried first, then Groq's vision model, matching the
+        text path's Gemini-primary/Groq-fallback order."""
         with open(image_path, "rb") as f:
             image_data = base64.b64encode(f.read()).decode("utf-8")
-
         ext = image_path.lower().split(".")[-1]
         mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(ext, "image/png")
+
+        for key in settings.all_gemini_keys:
+            try:
+                return await self._gemini_vision(image_data, mime, prompt, key)
+            except Exception as e:
+                print(f"[LLM] Gemini vision key ...{key[-6:]} failed: {e}")
 
         payload = {
             "model": settings.GROQ_VISION_MODEL,
@@ -72,9 +79,22 @@ class LLMService:
                     resp.raise_for_status()
                     return resp.json()["choices"][0]["message"]["content"]
             except Exception as e:
-                print(f"[LLM] Vision key ...{key[-6:]} failed: {e}")
+                print(f"[LLM] Groq vision key ...{key[-6:]} failed: {e}")
 
-        raise RuntimeError("All Groq vision keys failed")
+        raise RuntimeError("All Gemini and Groq vision keys failed")
+
+    async def _gemini_vision(self, image_data_b64: str, mime: str, prompt: str, key: str) -> str:
+        payload = {
+            "contents": [{"parts": [
+                {"inline_data": {"mime_type": mime, "data": image_data_b64}},
+                {"text": prompt},
+            ]}]
+        }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={key}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
 
     async def _groq_text(self, prompt: str, system: str, max_tokens: int, key: str) -> str:
         messages = []
