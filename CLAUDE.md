@@ -6,7 +6,8 @@ This file provides guidance to Claude Code when working with this repository.
 
 PptGen is a full-stack AI presentation generator. Users describe a topic; the backend plans slides with Gemini (primary) / Groq GPT-OSS 120B (fallback), fetches images, renders a `.pptx` with python-pptx, and streams real-time progress via SSE. The frontend (React 19 + Vite + TypeScript) is built and committed to `frontend/dist/` — FastAPI serves it directly (no separate web server). The backend uses async SQLAlchemy against PostgreSQL (the `users` table only — presentation history is separately disk-persisted JSON, see below).
 
-Live at **https://pptgen.zrik.tech** (Heroku eco dyno, single process).
+Live at **https://pptgen.zrik.tech** (AWS EC2, systemd service on port 8001, shares the box
+with kGPT behind one Nginx).
 
 ---
 
@@ -28,10 +29,13 @@ npm run dev   # http://localhost:5173  (proxies /api → localhost:8000)
 # Frontend (production build — MUST do this before deploying)
 cd frontend
 npm run build
-# Then commit frontend/dist/ with git add -f frontend/dist/
+# Then commit frontend/dist/ with git add -f frontend/dist/ (still committed to git —
+# the EC2 box builds it once at deploy time, but committing keeps the deploy-from-git
+# workflow identical to before)
 
-# Deploy to Heroku
-git push heroku main
+# Deploy: on the server
+git pull && cd frontend && npm run build && cd ..
+sudo systemctl restart pptgen
 ```
 
 - App: `http://localhost:5173` (dev) or `http://localhost:8000` (prod build served by FastAPI)
@@ -68,7 +72,7 @@ FastAPI `main.py`:
 - Mounts `/outputs` → `backend/outputs/` (PPTX files + auto-fetched images)
 - Catch-all `/{full_path:path}` → serves `frontend/dist/index.html`
 
-`VITE_API_URL=/api` in `.env.production` — relative path, same origin on Heroku.
+`VITE_API_URL=/api` in `.env.production` — relative path, same origin (FastAPI serves the built frontend directly).
 
 **Important:** `import.meta.env.VITE_API_URL` is `""` (empty string) when set to `/api`, which is falsy in JS. Always check `!= null` not `||` when deriving the base URL:
 ```js
@@ -97,19 +101,21 @@ const BASE = import.meta.env.VITE_API_URL != null
 | `frontend/src/components/JobTracker.tsx` | SSE + polling, progress bar, done/error states |
 | `frontend/src/components/SlidePreview.tsx` | Slide list sidebar + editor (edit/notes/AI rewrite/reorder) |
 | `frontend/src/components/PresentationHistory.tsx` | Per-user history list — **requires the `token` prop** from `App.tsx`; it was missing entirely until this was fixed, which silently 401'd every history/delete request |
-| `Procfile` | `web: sh -c 'cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'` |
-| `.python-version` | `3.11` — Heroku buildpack reads this |
 
 ---
 
-## Deployment (Heroku)
+## Deployment (AWS EC2)
 
-- Single eco dyno — FastAPI serves everything
-- `frontend/dist/` is committed to git (Heroku has no Node.js buildpack)
-- Environment variables set via `heroku config:set`
-- `CORS_ORIGINS` must be comma-separated (not JSON array) — Heroku CLI strips inner quotes
-- Storage is ephemeral: outputs and uploads are lost on dyno restart
-- Custom domain: `pptgen.zrik.tech` via CNAME at manage.get.tech
+- Runs as its own systemd service (`pptgen.service`, single worker) on port 8001, behind
+  Nginx alongside kGPT (port 8000) and CaReSale/ClauseGuard on a separate Azure VM
+- `frontend/dist/` is committed to git, but the EC2 box also rebuilds it directly on deploy
+  (real Node.js available, unlike Heroku's buildpack-only setup)
+- Environment variables live in `backend/.env` on the server (not a platform config store)
+- `CORS_ORIGINS` is comma-separated (not JSON array) — see Known Quirks below for why
+- Shares one Postgres instance on the box with a dedicated `pptgen` database
+- Storage (outputs/uploads) lives on the VM's local disk — persists across app restarts,
+  but not backed up
+- Custom domain: `pptgen.zrik.tech`, DNS A record → the EC2 box's IP, SSL via certbot
 
 ### Deploy workflow
 
@@ -117,18 +123,18 @@ const BASE = import.meta.env.VITE_API_URL != null
 cd frontend && npm run build && cd ..
 git add -f frontend/dist/ <changed-source-files>
 git commit -m "..."
-git push             # GitHub
-git push heroku main # Heroku
+git push                          # GitHub
+# then on the server:
+git pull && sudo systemctl restart pptgen
 ```
 
 ---
 
 ## Known Quirks
 
-- **Pydantic v2 `CORS_ORIGINS`**: Field type must be `str`, not `List[str]`. v2 JSON-parses list fields at source level before validators run; Heroku CLI strips inner quotes making JSON invalid. Use `str` + `cors_origins_list` property.
+- **Pydantic v2 `CORS_ORIGINS`**: Field type must be `str`, not `List[str]`. v2 JSON-parses list-typed env vars before any `field_validator` runs, so a plain comma-separated value would 400 at startup on a `List[str]` field — parse it manually via the `cors_origins_list` property instead.
 - **`VITE_API_URL=/api` is falsy**: Empty string after removing `/api` triggers `||` fallback. Use `!= null` check.
-- **Heroku ephemeral storage**: PPTX files and uploaded images exist only for the dyno's lifetime (typically a few hours). `cleanup_old_outputs()` removes files older than 1 hour on each generation.
-- **Session dir lifetime**: User-uploaded images stay in `uploads/{session_id}/` for up to 1 hour so slide re-renders can embed them. `_cleanup_old_sessions()` removes them on the next generation call.
+- **Session dir lifetime**: User-uploaded images stay in `uploads/{session_id}/` for up to 1 hour so slide re-renders can embed them. `_cleanup_old_sessions()` removes them on the next generation call. `cleanup_old_outputs()` similarly prunes generated PPTX files older than 1 hour.
 - **History is disk-persisted JSON** (`outputs/history.json`), scoped per username. Entries are pruned when their PPTX file no longer exists.
 - **`PresentationHistory` needs the `token` prop.** It fetches `/api/history` and `DELETE /api/history/{id}`, both of which require `Authorization: Bearer <token>` — the component doesn't read `localStorage` itself, so if it's ever rendered without `token={token}` from `App.tsx`, every request 401s. This isn't visible as a UI error since the component renders nothing when `history` is empty, so it fails silently — always pass the prop.
 

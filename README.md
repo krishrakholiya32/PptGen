@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript">
     <img src="https://img.shields.io/badge/Gemini-3.1_Flash_Lite-4285F4?style=flat&logo=google&logoColor=white" alt="Gemini">
     <img src="https://img.shields.io/badge/Groq-GPT--OSS_120B-F55036?style=flat" alt="Groq">
-    <img src="https://img.shields.io/badge/Heroku-deployed-430098?style=flat&logo=heroku&logoColor=white" alt="Heroku">
+    <img src="https://img.shields.io/badge/AWS-EC2-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="AWS">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License">
   </p>
 </p>
@@ -81,7 +81,7 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 | **Image fetching** | Unsplash → Pexels → Pixabay (tried in order, auto-fetch per slide) |
 | **Frontend** | React 19 + Vite + TypeScript |
 | **Styling** | Pure CSS (design system — Syne + DM Sans fonts) |
-| **Deployment** | Heroku (eco dyno, single-process — FastAPI serves React build) |
+| **Deployment** | AWS EC2 (Ubuntu), systemd + Nginx + Let's Encrypt — FastAPI serves React build |
 
 ---
 
@@ -274,25 +274,25 @@ PptGen/
 │   │   ├── App.tsx                 # Root — auth gate, steps bar, token keepalive
 │   │   ├── types.ts                # Shared TypeScript interfaces
 │   │   └── App.css                 # Full design system (dark SaaS, responsive)
-│   ├── .env.production             # VITE_API_URL=/api (relative, same-origin on Heroku)
+│   ├── .env.production             # VITE_API_URL=/api (relative, same-origin)
 │   ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
 │   └── vite.config.ts
 ├── docs/
 │   └── screenshots/
-├── Procfile                        # web: uvicorn app.main:app (served from backend/)
-├── .python-version                 # 3.11 (Heroku buildpack)
 ├── docker-compose.yml
 └── README.md
 ```
 
 ---
 
-## Deployment (Heroku)
+## Deployment (AWS EC2)
 
-The app runs as a **single Heroku dyno** — FastAPI serves both the API and the React build:
+Runs on the same EC2 box as kGPT — Ubuntu, each app as its own systemd service behind a
+shared Nginx, sharing one Postgres instance (separate databases).
 
 ```
-Procfile:  web: sh -c 'cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'
+systemd: uvicorn app.main:app --host 127.0.0.1 --port 8001
+Nginx:   reverse proxy pptgen.zrik.tech → 127.0.0.1:8001, SSL via Let's Encrypt
 ```
 
 FastAPI mounts `/assets` and `/outputs` as `StaticFiles` and serves `frontend/dist/index.html` via a catch-all route.
@@ -300,34 +300,36 @@ FastAPI mounts `/assets` and `/outputs` as `StaticFiles` and serves `frontend/di
 ### Deploy your own
 
 ```bash
-heroku create your-app-name
-heroku addons:create heroku-postgresql:essential-0
+# On the server: clone, install, build
+git clone https://github.com/krishrakholiya32/PptGen.git
+cd PptGen/backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cd ../frontend && npm install && npm run build
 
-heroku config:set GEMINI_API_KEY=...
-heroku config:set GEMINI_API_KEYS=your_second_key,your_third_key
-heroku config:set GROQ_API_KEY=...
-heroku config:set GROQ_API_KEYS=your_second_groq_key
-heroku config:set GROQ_TEXT_MODEL=openai/gpt-oss-120b
-heroku config:set GROQ_VISION_MODEL=qwen/qwen3.6-27b
-heroku config:set JWT_SECRET_KEY=...
-heroku config:set CORS_ORIGINS=https://your-domain.com
-heroku config:set ENVIRONMENT=production
+# Postgres (local, same box or elsewhere)
+sudo -u postgres psql -c "CREATE USER pptgen WITH PASSWORD 'yourpass';"
+sudo -u postgres psql -c "CREATE DATABASE pptgen OWNER pptgen;"
 
-# Build frontend first
-cd frontend && npm run build && cd ..
-git add -f frontend/dist/
-git commit -m "build: production frontend"
-git push heroku main
+# backend/.env
+DATABASE_URL=postgresql+asyncpg://pptgen:yourpass@localhost:5432/pptgen
+GEMINI_API_KEY=...
+GEMINI_API_KEYS=your_second_key,your_third_key
+GROQ_API_KEY=...
+GROQ_API_KEYS=your_second_groq_key
+GROQ_TEXT_MODEL=openai/gpt-oss-120b
+GROQ_VISION_MODEL=qwen/qwen3.6-27b
+JWT_SECRET_KEY=...
+CORS_ORIGINS=https://your-domain.com
+ENVIRONMENT=production
 ```
 
-Custom domain:
-```bash
-heroku domains:add pptgen.yourdomain.com
-heroku certs:auto:enable
-# Add CNAME in your DNS provider pointing to the Heroku DNS target
-```
+Then a systemd unit (`ExecStart=.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001`),
+an Nginx server block reverse-proxying to that port, and `sudo certbot --nginx -d your-domain.com`
+for SSL.
 
-> **Note:** Heroku eco dynos use ephemeral storage. Generated PPTX files and uploaded images are cleaned up after 1 hour. For permanent storage, wire up an S3 bucket.
+> **Note:** Outputs and uploaded images live on the VM's local disk (not ephemeral like a
+> Heroku dyno was, but also not backed up). For durability across a VM rebuild, wire up an
+> S3/Cloudflare R2 bucket.
 
 ---
 
@@ -348,5 +350,5 @@ heroku certs:auto:enable
 ---
 
 <p align="center">
-  Designed and implemented from scratch with FastAPI · React · Gemini · Groq · Deployed on Heroku
+  Designed and implemented from scratch with FastAPI · React · Gemini · Groq · Deployed on AWS EC2
 </p>
