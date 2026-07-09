@@ -16,7 +16,7 @@ interface AuthPageProps {
 }
 
 const FEATURES: Feature[] = [
-  { icon: "✦", title: "AI-Powered Content", desc: "Groq LLaMA generates smart, structured slide content instantly" },
+  { icon: "✦", title: "AI-Powered Content", desc: "Gemini + Groq generate smart, structured slide content instantly" },
   { icon: "◈", title: "Live Web Research", desc: "Automatically pulls current facts and data into your slides" },
   { icon: "◉", title: "Beautiful Themes", desc: "8 professional themes with custom color controls" },
   { icon: "⬡", title: "Instant PPTX Export", desc: "Download fully editable PowerPoint files in seconds" },
