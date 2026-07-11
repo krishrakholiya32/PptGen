@@ -27,23 +27,36 @@ async def upload_files(
     os.makedirs(session_dir, exist_ok=True)
 
     uploaded = {"images": [], "templates": [], "session_id": session_id}
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     for file in files:
         ext = os.path.splitext(file.filename)[1].lower()
-        size = 0
+        if ext not in ALLOWED_EXTENSIONS["images"] and ext not in ALLOWED_EXTENSIONS["templates"]:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext or '(none)'}")
 
-        dest = os.path.join(session_dir, os.path.basename(file.filename))
-        with open(dest, "wb") as f:
-            content = await file.read()
-            size = len(content)
-            if size > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-                raise HTTPException(status_code=413, detail=f"{file.filename} exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit")
-            f.write(content)
+        # basename() strips directory components so a crafted filename can't write
+        # outside session_dir; the stored name is also what later requests must
+        # reference (see generate.py's template_file/image_files validation).
+        safe_name = os.path.basename(file.filename)
+        dest = os.path.join(session_dir, safe_name)
+
+        size = 0
+        try:
+            with open(dest, "wb") as f:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > max_bytes:
+                        raise HTTPException(status_code=413, detail=f"{file.filename} exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit")
+                    f.write(chunk)
+        except HTTPException:
+            if os.path.exists(dest):
+                os.remove(dest)
+            raise
 
         if ext in ALLOWED_EXTENSIONS["images"]:
-            uploaded["images"].append(file.filename)
+            uploaded["images"].append(safe_name)
         elif ext in ALLOWED_EXTENSIONS["templates"]:
-            uploaded["templates"].append(file.filename)
+            uploaded["templates"].append(safe_name)
 
     return JSONResponse(content=uploaded)
 

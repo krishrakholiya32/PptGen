@@ -15,10 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db import get_db
 from app.models.user import User
+from app.core.config import settings
 
 password_hash = PasswordHash((Argon2Hasher(),))
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me")
+# Single source of truth for the JWT secret — settings.JWT_SECRET_KEY (config.py
+# fails fast at startup if it's still the dev default), so this module doesn't
+# keep its own separate os.getenv lookup with a different fallback string.
+JWT_SECRET_KEY = settings.JWT_SECRET_KEY
 JWT_ALGORITHM  = "HS256"
 TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 

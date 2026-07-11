@@ -78,6 +78,9 @@ try:
     if not settings.GROQ_API_KEY or settings.GROQ_API_KEY == "your_groq_api_key_here":
         print("ERROR: GROQ_API_KEY is required and must be set in .env file")
         sys.exit(1)
+    if settings.JWT_SECRET_KEY == "pptgen-dev-secret-change-in-prod":
+        print("ERROR: JWT_SECRET_KEY is not set. Set it in .env before starting.")
+        sys.exit(1)
 except Exception as e:
     print(f"ERROR: Failed to load configuration: {e}")
     print("Please ensure .env file exists with required variables")

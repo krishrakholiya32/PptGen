@@ -1,9 +1,13 @@
 import os
 import json
+import logging
+import subprocess
 import collections
 from pathlib import Path
 from typing import Optional
 from app.services.llm_service import llm
+
+logger = logging.getLogger(__name__)
 
 
 class StyleExtractor:
@@ -102,7 +106,7 @@ Be concise — 3-4 sentences max."""
 
             return await llm.analyze_image(img_path, prompt)
         except Exception as e:
-            print(f"[StyleExtractor] Vision analysis failed: {e}")
+            logger.warning(f"Vision analysis failed for {file_path}: {e}")
             return "Standard layout"
 
     async def _render_first_page(self, file_path: str, file_type: str) -> Optional[str]:
@@ -110,14 +114,31 @@ Be concise — 3-4 sentences max."""
         try:
             img_path = file_path.replace(f".{file_type}", "_preview.png")
             if file_type == "pptx":
-                # Use LibreOffice to convert first slide
-                os.system(f"libreoffice --headless --convert-to png --outdir /tmp '{file_path}' 2>/dev/null")
+                # Use an argument list (no shell=True) so the file path can never be
+                # interpreted as shell syntax, regardless of its contents.
+                result = subprocess.run(
+                    ["libreoffice", "--headless", "--convert-to", "png", "--outdir", "/tmp", file_path],
+                    capture_output=True,
+                    timeout=60,
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        "LibreOffice conversion failed for %s (exit %s): %s",
+                        file_path, result.returncode, result.stderr.decode(errors="replace").strip(),
+                    )
                 tmp = f"/tmp/{Path(file_path).stem}.png"
                 if os.path.exists(tmp):
                     import shutil
                     shutil.copy(tmp, img_path)
             return img_path if os.path.exists(img_path) else None
+        except subprocess.TimeoutExpired:
+            logger.error("LibreOffice conversion timed out for %s", file_path)
+            return None
+        except FileNotFoundError:
+            logger.error("LibreOffice binary not found — template vision analysis is disabled")
+            return None
         except Exception:
+            logger.exception("Unexpected error rendering preview for %s", file_path)
             return None
 
     def _default_style(self) -> dict:

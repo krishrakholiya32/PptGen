@@ -186,8 +186,16 @@ async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
         _save_jobs(jobs)
         style = {}
         if req.template_file:
-            template_path = os.path.join(session_dir, req.template_file)
-            if os.path.exists(template_path):
+            # Only allow a bare filename within this session's own upload dir —
+            # strips any path components and rejects attempts to escape session_dir.
+            safe_template = os.path.basename(req.template_file)
+            template_path = os.path.abspath(os.path.join(session_dir, safe_template))
+            session_dir_abs = os.path.abspath(session_dir)
+            if (
+                safe_template
+                and os.path.commonpath([template_path, session_dir_abs]) == session_dir_abs
+                and os.path.exists(template_path)
+            ):
                 style = await extractor.extract(template_path)
         if not style:
             style = extractor._default_style()
