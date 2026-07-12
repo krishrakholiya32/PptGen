@@ -30,7 +30,7 @@
   </tr>
   <tr>
     <td align="center"><em>Landing — auth form with feature highlights</em></td>
-    <td align="center"><em>Configure — prompt, templates, themes</em></td>
+    <td align="center"><em>Configure — prompt, themes, slide count, source docs</em></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/6-generating.png" alt="Generating progress" width="100%"></td>
@@ -39,6 +39,14 @@
   <tr>
     <td align="center"><em>Real-time generation progress</em></td>
     <td align="center"><em>Presentation ready + slide editor</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/5-themes.png" alt="Theme picker" width="100%"></td>
+    <td><img src="docs/screenshots/9-editing.png" alt="AI slide rewrite" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>8 built-in themes</em></td>
+    <td align="center"><em>AI-rewrite a slide in place</em></td>
   </tr>
 </table>
 
@@ -60,10 +68,11 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 | 4 | **Custom Colors** | Override background, accent and text colour on any theme |
 | 5 | **Slide Editor** | Edit titles, bullets, speaker notes; reorder or AI-rewrite any slide post-generation |
 | 6 | **Image Integration** | Auto-fetches relevant images per slide; user-uploaded images supported |
-| 7 | **Instant PPTX Export** | Downloads a fully editable `.pptx` in seconds |
-| 8 | **Presentation History** | Per-user history with one-click re-download |
-| 9 | **Real-time Progress** | SSE streaming with HTTP polling fallback |
-| 10 | **Auth & Security** | JWT + Argon2 password hashing; all write endpoints require auth |
+| 7 | **Source Document Grounding** | Upload a PDF/DOCX/TXT/MD alongside your prompt — its extracted text is injected as source content the AI writes from |
+| 8 | **Instant PPTX Export** | Downloads a fully editable `.pptx` in seconds |
+| 9 | **Presentation History** | Per-user history with one-click re-download |
+| 10 | **Real-time Progress** | SSE streaming with HTTP polling fallback |
+| 11 | **Auth & Security** | JWT + Argon2 password hashing; all write endpoints require auth |
 
 ---
 
