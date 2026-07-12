@@ -14,7 +14,7 @@ export default function App() {
   const [token,          setToken]          = useState<string | null>(() => localStorage.getItem("pptgen_token") || null)
   const [user,           setUser]           = useState<User | null>(null)
   const [sessionId,      setSessionId]      = useState<string>(() => crypto.randomUUID())
-  const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFiles>({ images: [], templates: [] })
+  const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFiles>({ images: [], templates: [], documents: [] })
   const [jobId,          setJobId]          = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get("job") || null
@@ -57,7 +57,7 @@ export default function App() {
 
   const handleReset = () => {
     setSessionId(crypto.randomUUID())
-    setUploadedFiles({ images: [], templates: [] })
+    setUploadedFiles({ images: [], templates: [], documents: [] })
     setJobId(null)
     setStep(2)
   }

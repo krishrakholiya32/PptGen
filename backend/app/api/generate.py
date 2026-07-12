@@ -19,8 +19,11 @@ from app.services.content_planner import planner
 from app.services.renderer_pptx import renderer_pptx
 from app.services.image_fetcher import fetch_images_for_slides
 from app.services.web_search import get_web_context
+from app.services import document_extractor
 
 router = APIRouter()
+
+MAX_DOCUMENT_CONTEXT_CHARS = 40_000  # ~10k tokens; one-time injection, not re-sent per turn
 
 # ── Persistent jobs store ─────────────────────────────────────────────────────
 
@@ -105,6 +108,7 @@ class GenerateRequest(BaseModel):
     session_id: str
     template_file: Optional[str] = None
     image_files: Optional[List[str]] = []
+    document_files: Optional[List[str]] = []
     theme_colors: Optional[ThemeColors] = None
     use_web_search: bool = False
     content_density: str = "medium"
@@ -166,6 +170,43 @@ async def get_job_status(job_id: str):
     )
 
 
+def _extract_document_context(session_dir: str, document_files: list[str]) -> tuple[str, bool]:
+    """Read each uploaded document from this session's upload dir, extract its
+    text, and format into a single labeled context block ready to append to
+    the generation prompt. Returns (context_text, was_truncated).
+
+    Mirrors the containment check already used for template_file: only a bare
+    filename within session_dir is accepted, closing the same path-traversal
+    gap that fed the earlier RCE fix in style_extractor.py.
+    """
+    session_dir_abs = os.path.abspath(session_dir)
+    parts = []
+    for filename in document_files:
+        safe_name = os.path.basename(filename)
+        doc_path = os.path.abspath(os.path.join(session_dir, safe_name))
+        if not safe_name or os.path.commonpath([doc_path, session_dir_abs]) != session_dir_abs:
+            continue
+        if not os.path.exists(doc_path):
+            continue
+        try:
+            with open(doc_path, "rb") as f:
+                data = f.read()
+            text = document_extractor.extract_text(data, safe_name)
+        except Exception:
+            continue
+        if text.strip():
+            parts.append(f"[Uploaded document: {safe_name}]\n{text.strip()}")
+
+    if not parts:
+        return "", False
+
+    combined = "\n\n".join(parts)
+    truncated = len(combined) > MAX_DOCUMENT_CONTEXT_CHARS
+    combined = combined[:MAX_DOCUMENT_CONTEXT_CHARS]
+    header = "\n\n[SOURCE DOCUMENT CONTENT — build the presentation from this material]\n"
+    return header + combined + "\n\n", truncated
+
+
 async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
     session_dir = os.path.join(settings.UPLOAD_DIR, req.session_id)
     try:
@@ -205,14 +246,25 @@ async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
             style["accent_color"]     = req.theme_colors.accent
             style["text_color"]       = req.theme_colors.text
 
-        # Step 2: Optional web search
+        # Step 2: Optional uploaded documents -> source content for the deck
         final_prompt = req.prompt
+        if req.document_files:
+            jobs[job_id].update({"progress": 14, "message": "Reading uploaded document(s)..."})
+            _save_jobs(jobs)
+            doc_context, truncated = _extract_document_context(session_dir, req.document_files)
+            if doc_context:
+                final_prompt = req.prompt + doc_context
+            if truncated:
+                jobs[job_id]["message"] = "Uploaded document(s) were long — using the first part of the content."
+                _save_jobs(jobs)
+
+        # Step 2b: Optional web search
         if req.use_web_search:
             jobs[job_id].update({"progress": 18, "message": "Searching web for current facts..."})
             _save_jobs(jobs)
             web_context = await get_web_context(req.prompt)
             if web_context:
-                final_prompt = req.prompt + web_context
+                final_prompt = final_prompt + web_context
 
         # Step 3: Plan content
         jobs[job_id].update({"progress": 28, "message": "Planning presentation structure with AI..."})

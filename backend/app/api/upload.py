@@ -11,6 +11,7 @@ router = APIRouter()
 ALLOWED_EXTENSIONS = {
     "images": {".jpg", ".jpeg", ".png", ".gif", ".webp"},
     "templates": {".pptx"},
+    "documents": {".pdf", ".docx", ".txt", ".md"},
 }
 
 
@@ -26,12 +27,16 @@ async def upload_files(
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id)
     os.makedirs(session_dir, exist_ok=True)
 
-    uploaded = {"images": [], "templates": [], "session_id": session_id}
+    uploaded = {"images": [], "templates": [], "documents": [], "session_id": session_id}
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     for file in files:
         ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in ALLOWED_EXTENSIONS["images"] and ext not in ALLOWED_EXTENSIONS["templates"]:
+        if (
+            ext not in ALLOWED_EXTENSIONS["images"]
+            and ext not in ALLOWED_EXTENSIONS["templates"]
+            and ext not in ALLOWED_EXTENSIONS["documents"]
+        ):
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext or '(none)'}")
 
         # basename() strips directory components so a crafted filename can't write
@@ -57,6 +62,8 @@ async def upload_files(
             uploaded["images"].append(safe_name)
         elif ext in ALLOWED_EXTENSIONS["templates"]:
             uploaded["templates"].append(safe_name)
+        elif ext in ALLOWED_EXTENSIONS["documents"]:
+            uploaded["documents"].append(safe_name)
 
     return JSONResponse(content=uploaded)
 

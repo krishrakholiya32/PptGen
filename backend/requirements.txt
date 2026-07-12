@@ -13,3 +13,7 @@ asyncpg
 pyjwt
 pwdlib[argon2]
 email-validator
+
+# ===== Document upload (generate slides from a source doc) =====
+pymupdf
+python-docx

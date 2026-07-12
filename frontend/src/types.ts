@@ -18,6 +18,7 @@ export interface Colors {
 export interface UploadedFiles {
   images: string[]
   templates: string[]
+  documents: string[]
 }
 
 export interface User {

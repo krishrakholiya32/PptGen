@@ -79,7 +79,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
 
   // ── Upload helpers ────────────────────────────────────────────────────────
 
-  const ACCEPTED = ".jpg,.jpeg,.png,.webp,.gif,.pptx"
+  const ACCEPTED = ".jpg,.jpeg,.png,.webp,.gif,.pptx,.pdf,.docx,.txt,.md"
 
   const addFiles = (newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles)
@@ -95,6 +95,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
     const ext = name.split(".").pop()?.toLowerCase() ?? ""
     if (["jpg","jpeg","png","webp","gif"].includes(ext)) return "image"
     if (ext === "pptx") return "template"
+    if (["pdf","docx","txt","md"].includes(ext)) return "document"
     return "unknown"
   }
 
@@ -110,7 +111,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       setSessionId(data.session_id)
-      setUploadedFiles({ images: data.images || [], templates: data.templates || [] })
+      setUploadedFiles({ images: data.images || [], templates: data.templates || [], documents: data.documents || [] })
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -142,6 +143,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
           session_id: sessionId,
           template_file: templateFile || null,
           image_files: uploadedFiles.images,
+          document_files: uploadedFiles.documents,
           theme_colors: activeColors,
           use_web_search: useWebSearch,
           content_density: contentDensity,
@@ -300,7 +302,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
       <div className="form-group">
         <button className="btn-toggle upload-toggle" onClick={() => setShowUpload(v => !v)}>
           <span style={{ fontSize: "10px" }}>{showUpload ? "▾" : "▸"}</span>
-          📎 Add images or style template
+          📎 Add images, style template, or source document
           <span className="optional-label">optional</span>
         </button>
 
@@ -317,7 +319,7 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
                 style={{ display: "none" }} onChange={e => e.target.files && addFiles(e.target.files)} />
               <span className="dropzone-icon-sm">⬆️</span>
               <span className="dropzone-text-sm">Drop files or click to browse</span>
-              <span className="dropzone-hint-sm">Images: JPG PNG WebP · Templates: PPTX</span>
+              <span className="dropzone-hint-sm">Images: JPG PNG WebP · Templates: PPTX · Documents: PDF DOCX TXT MD</span>
             </div>
 
             {uploadFiles.length > 0 && (
@@ -325,7 +327,9 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
                 <div className="file-list" style={{ marginTop: "10px" }}>
                   {uploadFiles.map(f => (
                     <div key={f.name} className="file-item">
-                      <span className="file-icon">{getFileType(f.name) === "image" ? "🖼️" : "📊"}</span>
+                      <span className="file-icon">
+                        {getFileType(f.name) === "image" ? "🖼️" : getFileType(f.name) === "document" ? "📄" : "📊"}
+                      </span>
                       <span className="file-name">{f.name}</span>
                       <span className="file-badge">{getFileType(f.name)}</span>
                       <button className="file-remove" onClick={() => removeFile(f.name)}>✕</button>
@@ -340,10 +344,13 @@ export function PromptForm({ sessionId, setSessionId, uploadedFiles, setUploaded
 
             {uploadError && <p className="error-msg" style={{ marginTop: "8px" }}>{uploadError}</p>}
 
-            {(uploadedFiles.images.length > 0 || uploadedFiles.templates.length > 0) && (
+            {(uploadedFiles.images.length > 0 || uploadedFiles.templates.length > 0 || uploadedFiles.documents.length > 0) && (
               <div className="uploaded-summary">
                 {uploadedFiles.images.length > 0 && (
                   <p className="form-hint">✓ {uploadedFiles.images.length} image{uploadedFiles.images.length > 1 ? "s" : ""} ready for placement</p>
+                )}
+                {uploadedFiles.documents.length > 0 && (
+                  <p className="form-hint">✓ {uploadedFiles.documents.length} document{uploadedFiles.documents.length > 1 ? "s" : ""} ready — their content will be used to generate your slides</p>
                 )}
                 {uploadedFiles.templates.length > 0 && (
                   <>
