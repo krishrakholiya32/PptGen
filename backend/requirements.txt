@@ -4,7 +4,6 @@ python-multipart
 httpx
 pydantic-settings
 python-pptx
-jinja2
 lxml
 Pillow
 duckduckgo-search
