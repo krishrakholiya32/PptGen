@@ -83,6 +83,30 @@ class LLMService:
 
         raise RuntimeError("All Gemini and Groq vision keys failed")
 
+    async def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
+        """Gemini-only (Groq has no embedding endpoint) — returns None rather than
+        raising if every key fails, so callers can degrade gracefully instead of
+        breaking generation over an embedding-only outage."""
+        for key in settings.all_gemini_keys:
+            try:
+                return await self._gemini_embed(texts, key)
+            except Exception as e:
+                print(f"[LLM] Gemini embed key ...{key[-6:]} failed: {e}")
+        return None
+
+    async def _gemini_embed(self, texts: list[str], key: str) -> list[list[float]]:
+        payload = {
+            "requests": [
+                {"model": "models/gemini-embedding-001", "content": {"parts": [{"text": t}]}}
+                for t in texts
+            ]
+        }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={key}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            return [e["values"] for e in resp.json()["embeddings"]]
+
     async def _gemini_vision(self, image_data_b64: str, mime: str, prompt: str, key: str) -> str:
         payload = {
             "contents": [{"parts": [

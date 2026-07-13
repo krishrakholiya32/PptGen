@@ -20,6 +20,8 @@ from app.services.renderer_pptx import renderer_pptx
 from app.services.image_fetcher import fetch_images_for_slides
 from app.services.web_search import get_web_context
 from app.services import document_extractor
+from app.services import document_rag
+from app.services.llm_service import llm
 
 router = APIRouter()
 
@@ -170,14 +172,22 @@ async def get_job_status(job_id: str):
     )
 
 
-def _extract_document_context(session_dir: str, document_files: list[str]) -> tuple[str, bool]:
+async def _extract_document_context(session_dir: str, document_files: list[str], query: str) -> tuple[str, bool, bool]:
     """Read each uploaded document from this session's upload dir, extract its
     text, and format into a single labeled context block ready to append to
-    the generation prompt. Returns (context_text, was_truncated).
+    the generation prompt. Returns (context_text, was_truncated, used_retrieval).
 
     Mirrors the containment check already used for template_file: only a bare
     filename within session_dir is accepted, closing the same path-traversal
     gap that fed the earlier RCE fix in style_extractor.py.
+
+    If the combined text exceeds MAX_DOCUMENT_CONTEXT_CHARS, retrieves the
+    chunks most relevant to `query` (the user's actual presentation prompt)
+    instead of blindly keeping only the first N characters -- a document's
+    relevant content isn't necessarily near the start, and with multiple
+    uploaded files a naive prefix cut can drop a whole file entirely. Falls
+    back to the old prefix-truncation behavior if embedding is unavailable
+    (e.g. a Gemini outage), so generation never breaks over this.
     """
     session_dir_abs = os.path.abspath(session_dir)
     parts = []
@@ -198,13 +208,21 @@ def _extract_document_context(session_dir: str, document_files: list[str]) -> tu
             parts.append(f"[Uploaded document: {safe_name}]\n{text.strip()}")
 
     if not parts:
-        return "", False
+        return "", False, False
 
     combined = "\n\n".join(parts)
-    truncated = len(combined) > MAX_DOCUMENT_CONTEXT_CHARS
-    combined = combined[:MAX_DOCUMENT_CONTEXT_CHARS]
     header = "\n\n[SOURCE DOCUMENT CONTENT — build the presentation from this material]\n"
-    return header + combined + "\n\n", truncated
+
+    if len(combined) <= MAX_DOCUMENT_CONTEXT_CHARS:
+        return header + combined + "\n\n", False, False
+
+    chunks = document_rag.chunk_text(combined)
+    selected = await document_rag.select_relevant_chunks(chunks, query, llm, MAX_DOCUMENT_CONTEXT_CHARS)
+    if selected is not None:
+        return header + "\n\n".join(selected) + "\n\n", True, True
+
+    # Embedding unavailable -- fall back to the original prefix-truncation behavior.
+    return header + combined[:MAX_DOCUMENT_CONTEXT_CHARS] + "\n\n", True, False
 
 
 async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
@@ -251,11 +269,17 @@ async def run_generation(job_id: str, req: GenerateRequest, username: str = ""):
         if req.document_files:
             jobs[job_id].update({"progress": 14, "message": "Reading uploaded document(s)..."})
             _save_jobs(jobs)
-            doc_context, truncated = _extract_document_context(session_dir, req.document_files)
+            doc_context, truncated, used_retrieval = await _extract_document_context(
+                session_dir, req.document_files, req.prompt
+            )
             if doc_context:
                 final_prompt = req.prompt + doc_context
             if truncated:
-                jobs[job_id]["message"] = "Uploaded document(s) were long — using the first part of the content."
+                jobs[job_id]["message"] = (
+                    "Uploaded document(s) were long — selected the most relevant sections."
+                    if used_retrieval
+                    else "Uploaded document(s) were long — using the first part of the content."
+                )
                 _save_jobs(jobs)
 
         # Step 2b: Optional web search
