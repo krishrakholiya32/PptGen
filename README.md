@@ -56,6 +56,8 @@
 
 PptGen was built to eliminate the manual work of creating presentations. Instead of spending hours on slide design and research, you describe your topic and the AI plans the structure, researches current facts via live web search, selects relevant images, and renders a fully editable PowerPoint — end to end in under a minute. The project explores background job queuing, real-time SSE progress streaming, AI-driven slide planning, and PPTX generation with python-pptx.
 
+For long uploaded source documents, a lightweight in-memory retrieval step replaces a blind prefix cut: the document is chunked, each chunk and the user's actual prompt are embedded, and only the chunks most relevant to the topic are kept — so a fact buried on page 40 of a 60-page report still makes it into the deck. No pgvector, no persistence — everything's computed fresh per request and discarded, matching the fact that document grounding here is a genuinely one-shot operation.
+
 ---
 
 ## Features
@@ -68,7 +70,7 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 | 4 | **Custom Colors** | Override background, accent and text colour on any theme |
 | 5 | **Slide Editor** | Edit titles, bullets, speaker notes; reorder or AI-rewrite any slide post-generation |
 | 6 | **Image Integration** | Auto-fetches relevant images per slide; user-uploaded images supported |
-| 7 | **Source Document Grounding** | Upload a PDF/DOCX/TXT/MD alongside your prompt — its extracted text is injected as source content the AI writes from |
+| 7 | **Source Document Grounding** | Upload a PDF/DOCX/TXT/MD alongside your prompt — its extracted text is injected as source content the AI writes from. Long documents (past ~40k chars) are chunked and embedded, keeping only the chunks most relevant to your actual prompt instead of blindly using the first ~10k tokens |
 | 8 | **Instant PPTX Export** | Downloads a fully editable `.pptx` in seconds |
 | 9 | **Presentation History** | Per-user history with one-click re-download |
 | 10 | **Real-time Progress** | SSE streaming with HTTP polling fallback |
@@ -87,6 +89,7 @@ PptGen was built to eliminate the manual work of creating presentations. Instead
 | **Database** | PostgreSQL (asyncpg) + async SQLAlchemy |
 | **Authentication** | JWT (PyJWT) + Argon2 (pwdlib) |
 | **Web search** | DuckDuckGo via `duckduckgo-search` |
+| **Document retrieval** | Lightweight in-memory RAG for long uploads — paragraph-aware chunking + Gemini `gemini-embedding-001` + pure-Python cosine similarity (no pgvector, no persistence) |
 | **Image fetching** | Unsplash → Pexels → Pixabay (tried in order, auto-fetch per slide) |
 | **Frontend** | React 19 + Vite + TypeScript |
 | **Styling** | Pure CSS (design system — Syne + DM Sans fonts) |
@@ -109,6 +112,7 @@ Browser
        ├─ Rate limit: 5 generations/hour per IP
        ├─ BackgroundTask: run_generation(job_id, req, username)
        │     ├─ Style extraction (from uploaded template or default)
+       │     ├─ Document grounding (optional — full text if it fits, else chunk + embed + retrieve most relevant sections)
        │     ├─ Web search (optional — DuckDuckGo)
        │     ├─ AI slide planning (Gemini primary, Groq fallback → JSON plan)
        │     ├─ Image fetching (per slide, saved to session_dir)
@@ -262,12 +266,14 @@ PptGen/
 │   │   ├── models/
 │   │   │   └── user.py           # User ORM model
 │   │   ├── services/
-│   │   │   ├── content_planner.py  # LLM → structured slide plan JSON
-│   │   │   ├── image_fetcher.py    # Unsplash/Pexels/Pixabay image search per slide
-│   │   │   ├── llm_service.py      # Gemini primary / Groq fallback LLM wrapper
-│   │   │   ├── renderer_pptx.py    # python-pptx slide renderer
-│   │   │   ├── style_extractor.py  # Extract theme from uploaded .pptx
-│   │   │   └── web_search.py       # DuckDuckGo web search context
+│   │   │   ├── content_planner.py    # LLM → structured slide plan JSON
+│   │   │   ├── document_extractor.py # PDF/DOCX/TXT/MD text extraction for grounding
+│   │   │   ├── document_rag.py       # Chunk + embed + cosine-similarity retrieval for long documents
+│   │   │   ├── image_fetcher.py      # Unsplash/Pexels/Pixabay image search per slide
+│   │   │   ├── llm_service.py        # Gemini primary / Groq fallback LLM wrapper (+ Gemini embeddings)
+│   │   │   ├── renderer_pptx.py      # python-pptx slide renderer
+│   │   │   ├── style_extractor.py    # Extract theme from uploaded .pptx
+│   │   │   └── web_search.py         # DuckDuckGo web search context
 │   │   └── main.py               # FastAPI app, CORS, static mounts, catch-all
 │   └── requirements.txt
 ├── frontend/
