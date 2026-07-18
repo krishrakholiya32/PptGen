@@ -55,6 +55,7 @@ backend/outputs/
 *.jpeg
 *.png
 *.gif
+!docs/demo.gif
 
 # Allow docs/screenshots
 !docs/

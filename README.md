@@ -52,6 +52,14 @@
 
 ---
 
+## Demo
+
+![PptGen Demo](docs/demo.gif)
+
+Try it live at **[pptgen.zrik.tech](https://pptgen.zrik.tech)**
+
+---
+
 ## Why I Built This
 
 PptGen was built to eliminate the manual work of creating presentations. Instead of spending hours on slide design and research, you describe your topic and the AI plans the structure, researches current facts via live web search, selects relevant images, and renders a fully editable PowerPoint — end to end in under a minute. The project explores background job queuing, real-time SSE progress streaming, AI-driven slide planning, and PPTX generation with python-pptx.
